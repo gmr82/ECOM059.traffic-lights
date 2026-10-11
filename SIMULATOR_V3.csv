@@ -1,0 +1,15 @@
+SIMULATOR_V3
+ESTADOS,Maintenance,Initial state,Crosswalks,Pedestrian crossing alert,Security delay 1,Southbound lanes reopened,Alert for the westbound,Security delay 2,StoN^NtoWaS,Main alert,Security delay 3,WtoSaN,West to all alert
+TEMPOS,11,1,12,4,2,22,4,1,60,4,1,25,4
+PROX,1,2,3,4,5,6,7,8,9,10,11,12,1
+---SEMAFOROS---
+ID,NOME,PEDESTRE,X,Y,ROT,S0,S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,S11,S12
+sem_1791351848685,Nc+Sc¹,1,1265,539,90,0|1,0|0,1|0,0|1,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0
+sem_1791351851041,Nc+Sc²,1,1200,1038,270,0|1,0|0,1|0,0|1,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0
+sem_1791352007221,StoN,0,1303,820,0,2|1,0|0,0|0,0|0,0|0,1|0,1|0,1|0,1|0,2|0,0|0,0|0,0|0
+sem_1791352012254,🠸 StoW,0,1258,828,0,2|1,0|0,0|0,0|0,0|0,1|0,2|0,0|0,0|0,0|0,0|0,0|0,0|0
+sem_1791352225533,WtoSaN,0,1341,920,90,2|1,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0,0|0,1|0,2|0
+sem_1791352679234,NtoWaS,0,1140,788,180,2|1,0|0,0|0,0|0,0|0,0|0,0|0,0|0,1|0,2|0,0|0,0|0,0|0
+---MAPA---
+Scale,TransX,TransY,Locked
+1.0231132075471698,-478.0619572325172,-335.13942036922356,0
