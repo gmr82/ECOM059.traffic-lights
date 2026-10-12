@@ -42,17 +42,48 @@ reset:
 	out SPL, temp
 	; ----------------------------------------------------------
 
+
+	; ---- Configurações iniciais ----
 	; zera state_count
 	clr state_count
+
+	; Define o clock como 16MHz
+	#define CLOCK 16.0e6
+	; Define o baundrate em 9600 ideal para uma comunicação moderada
+	.equ baundrate = 9600
+	; Valor do UBRR
+	.equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1)
 
 	; Fixa o prescale máximo que essa bagaça usa, pelo amor de Deus... É muito pouco D:
 	.equ prescale = 0b0101
 
 	; Pra configurar o timer no modo ctc (contar tanto cansa)
 	.equ WGM = 0b0100
+	; ----------------------------------------------------------
+
+
+	; ---- Configura o serial ----
+	; configurando o Baund rate register
+	ldi temp, high(UBRRvalue)
+	sts UBRR0H, temp
+	ldi temp, low(UBRRvalue)
+	sts UBRR0h, temp
+
+	; Configurando o USART control and status registrer C
+	; UMSEL01 E UMSEL01 = 0 0 ---> Modo assincrono
+	; UPM01 E UPM00 = 0 0 ----> Paridade desativada
+	; USBS0 = 0 ----> 1 Bit de parada
+	; UCSZ02, UCSZ01 E UCSZ00 = 0 1 1 ----> 8 bits por transimissão, ideal para transmitir caracteres
+	ldi temp, (0b11 << UCSZ00)
+	sts UCSR0C, temp
+
+	; Habilidando a transmissão dos sinais extraterrestres
+	ldi temp, (1 << TXEN0)
+	sts UCSR0B, temp
+	; ----------------------------------------------------------
+
 
 	; ---- Configura porta como saída ----
-	; !! AJUSTAR DEPOIS
 	; Configura como saída de 0 - 5 para a porta B
 	ldi temp, $3F
 	out DDRB, temp
@@ -66,11 +97,16 @@ reset:
 	out DDRD, temp
 	; ----------------------------------------------------------
 
-	; Carregamento inicial da entrada
-	rcall charge_leds
 
-	; Carregamento inicial da qtd de vezes que vai rodar a miséria
+	; ---- Carregamento inicial da entrada ----
+	rcall charge_leds
+	; ----------------------------------------------------------
+
+
+	; ---- Carregamento inicial da qtd de vezes que vai rodar a miséria ----
 	rcall charge_runtimes
+	; ----------------------------------------------------------
+
 
 	; ---- Configura inicialmente o timer ----
 	; Carregando o top inicial em Z
@@ -98,8 +134,10 @@ reset:
 	sts TCCR1B, temp
 	; ----------------------------------------------------------
 
-	; Habilita globalmente as interrupções
+
+	; ---- Habilita globalmente as interrupções ----
 	sei
+	; ----------------------------------------------------------
 ; ============================================================
 	
 
@@ -435,4 +473,8 @@ qtd_runs:
 ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
 ; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
 .db 0, 2, 8, 0, 10, 0, 0, 14, 0, 0, 9, 0
+; ============================================================
+
+; ============================================================
+; Mapeamento do serial
 ; ============================================================
