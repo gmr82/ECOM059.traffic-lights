@@ -17,24 +17,11 @@
 
 ; Registrador auxiliar
 .def temp = r18
-.def count_aux = r19
+.def temp2 = r19
+.def count_aux = r20
 
-; ---- Define limites ----
 ; Limite de estados
 .set state_limit = 12
-
-; Limite de execuções do estado 2
-.set state2_limit = 3
-
-; Limite de execuções do estado 5
-.set state5_limit = 5
-
-; Limite de execuções do estado 8
-.set state8_limit = 15
-
-; Limite de execuções do estado 11
-.set state11_limit = 10
-; ----------------------------------------------------------
 
 ; Pula para o inicializador do maldito programa
 jmp reset
@@ -67,20 +54,23 @@ reset:
 	; ---- Configura porta como saída ----
 	; !! AJUSTAR DEPOIS
 	; Configura como saída de 0 - 5 para a porta B
-	ldi temp, $7F
+	ldi temp, $3F
 	out DDRB, temp
 
 	; Configura como saída de 0 - 5 para a porta C
-	ldi temp, $7F
+	ldi temp, $3F
 	out DDRC, temp
 
-	; Configura como saída de 2 - 8 para a porta D
+	; Configura como saída de 2 - 7 para a porta D
 	ldi temp, $FC
 	out DDRD, temp
 	; ----------------------------------------------------------
 
-	; ---- Carregamento inicial da entrada ----
+	; Carregamento inicial da entrada
 	rcall charge_leds
+
+	; Carregamento inicial da qtd de vezes que vai rodar a miséria
+	rcall charge_runtimes
 
 	; ---- Configura inicialmente o timer ----
 	; Carregando o top inicial em Z
@@ -131,34 +121,175 @@ OCI1A_Interrupt:
 	in temp, SREG
 	push temp
 
-	; Passa pro próximo estado
-	inc state_count
+	; Verifica se count_aux tá zerado pra passar pro próximo estado
+	cpi count_aux, 0
+	breq proximo_estado
 
-	; Verifica se chegou ao último estado
-	cpi state_count, state_limit
-	; Caso não pula pra carregar o próximo estado
-	brlo estado_valido
+	; Decrementa o miserável
+	dec count_aux
+	rjmp exit
 
-	; Volta pro estado inicial
-	clr state_count
 
-	; Atualiza o estado
+	proximo_estado:
+		; Passa pro próximo estado
+		inc state_count
+
+		; Verifica se chegou ao último estado
+		cpi state_count, state_limit
+		; Caso não pula pra carregar o próximo estado
+		brlo estado_valido
+
+		; Volta pro estado inicial
+		clr state_count
+
+	
+	; Carrega o próximo estado
 	estado_valido:
-		; ---- Carrega o próximo estado ----
 		; Carrega os leds
 		rcall charge_leds
 		
+		; ---- Carrega o tempo ----
+		; Para o timer a pauladas
+		ldi temp, ((WGM >> 2) << WGM12)
+		sts TCCR1B, temp
+		
+		; Evita problemas com os delays em que o delay anterior é maior do que o próximo
+		; Segurança pra não perder o estado
+		; Basicamente só joga o contador pra 0
+		clr temp
+		sts TCNT1H, temp
+		sts TCNT1L, temp
+		
 		; Carrega o tempo
 		rcall charge_time
+
+		; Ressucita o poço de vacilo na base da bicuda
+		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
+		sts TCCR1B, temp
 		; ----------------------------------------------------------
+
+		; Carregamento inicial da qtd de vezes que vai rodar a miséria
+		rcall charge_runtimes
 
 	; Saida
 	; Despusha o SREG
-	pop temp
-	out SREG, temp
-	pop temp
+	exit:
+		pop temp
+		out SREG, temp
+		pop temp
 
 	reti
+; ============================================================
+
+
+; ============================================================
+; Carrega o mapeamento dos leds
+; ============================================================
+charge_leds:
+	; Configurando z com o mapeamento inicial
+	ldi ZH, high(mapeamento << 1)
+	ldi ZL, low(mapeamento << 1)
+
+	; Multiplica o state_count por 2
+	mov temp, state_count
+	lsl temp
+
+	; Incrementa para pegar o indice certo do mapeamento
+	add ZL, temp
+	clr temp
+	adc ZH, temp
+
+	; Carrega os leds do estado
+	lpm temp, Z+ ; Lê o menos significativo
+	lpm temp2, Z ; Lê o mais significativo
+
+	; Carrega 6 leds na porta B (De 0 - 5)
+	push temp
+	; Mascara pra pegar os 6 bits
+	andi temp, $3F
+	out PORTB, temp
+	pop temp
+
+	; Gambiarra pra pegar os dois últimos bits que não foram para PORTB
+	; O lsl desloca os bits para << e joga o bit 7 no carry
+	; O rol desloca os bits de temp2 para << e joga o carry no bit 0
+	lsl temp
+	rol temp2
+	lsl temp
+	rol temp2
+
+	; Carrega mais 6 leds na porta C (De 0 - 5)
+	mov temp, temp2
+	; Mascara pra pegar os 6 bits
+	andi temp, $3F
+	out PORTC, temp
+
+	; Troca os 4 primeiros bits com os últimos 4 bits
+	swap temp2
+	; Mascara pra pegar os 2 bits
+	andi temp2, $0C
+	; Pega o que tá na porta D
+	in temp, PORTD
+	; Zera só o que tiver nos bits que queremos
+	andi temp, $F3
+	; Junta com o que tem no temp 2
+	or temp, temp2
+	; Escreve na porta D
+	out PORTD, temp
+	; ----------------------------------------------------------
+
+	ret
+; ============================================================
+
+
+; ============================================================
+; Carrega o mapeamento dos timers
+; ============================================================
+charge_time:
+	; Carregando o top inicial em Z
+	ldi ZH, high(tops << 1)
+	ldi ZL, low(tops << 1)
+
+	; Artimanha pra multiplicar por 2
+	; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
+	; O caba não deixa fazer << 1 só porque state_count é registrador :(
+	mov temp, state_count
+	lsl temp
+
+	; Funciona igual ao carregamento do próximo estado
+	add ZL, temp
+	clr temp
+	adc ZH, temp
+
+	lpm temp2, Z+ ; Lê o byte baixo
+	lpm temp, Z ; Lê o byte alto
+
+	; Carrega o myte mais significativo do top
+	sts OCR1AH, temp
+	; Carrega o byte menos significativo do top
+	sts OCR1AL, temp2
+
+	ret
+; ============================================================
+
+
+; ============================================================
+; Carrega a quantidade de vezes que cada interrupção vai rodar
+; ============================================================
+charge_runtimes:
+	; Carregando o top inicial em Z
+	ldi ZH, high(qtd_runs << 1)
+	ldi ZL, low(qtd_runs << 1)
+
+	; Funciona igual ao carregamento do próximo estado
+	add ZL, state_count
+	clr temp
+	adc ZH, temp
+
+	; Carrega o byte menos significativo do top
+	lpm count_aux, z
+
+	ret
 ; ============================================================
 
 
@@ -286,62 +417,10 @@ tops:
 
 
 ; ============================================================
-; Carrega o mapeamento dos leds
+; Mapeamento da quantidade de vezes que vai acontecer as interrupções
 ; ============================================================
-charge_leds:
-	; Configurando z com o mapeamento inicial
-	ldi ZH, high(mapeamento << 1)
-	ldi ZL, low(mapeamento << 1)
-
-	; Multiplica o state_count por 2
-	mov temp, state_count
-	lsl temp
-
-	; Incrementa para pegar o indice certo do mapeamento
-	add ZL, temp
-	clr temp
-	adc ZH, temp
-
-	; Carrega a primeira leva de leds pra maldita porta B
-	lpm temp, Z+
-	; Joga a configuração de z na porta B como saída, faz o led ligar 'o'
-	out PORTB, temp
-
-	; Carrega a segunda leva de leds para a maldita porta C
-	lpm temp, z
-	; Joga a configuração de z na porta C como saída, faz o led ligar 'o'
-	out PORTC, temp
-	; ----------------------------------------------------------
-
-	ret
-; ============================================================
-
-
-; ============================================================
-; Carrega o mapeamento dos leds
-; ============================================================
-charge_time:
-	; Carregando o top inicial em Z
-		ldi ZH, high(tops << 1)
-		ldi ZL, low(tops << 1)
-
-		; Artimanha pra multiplicar por 2
-		; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
-		; O caba não deixa fazer << 1 só porque state_count é registrador :(
-		mov temp, state_count
-		lsl temp
-
-		; Funciona igual ao carregamento do próximo estado
-		add ZL, temp
-		clr temp
-		adc ZH, temp
-
-		; Carrega o byte menos significativo do top
-		lpm temp, z+
-		sts OCR1AL, temp
-		; Carrega o myte mais significativo do top
-		lpm temp, z
-		sts OCR1AH, temp
-
-		ret
+qtd_runs:
+; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
+; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
+.db 0, 2, 0, 0, 10, 0, 0, 14, 0, 0, 9, 0
 ; ============================================================
