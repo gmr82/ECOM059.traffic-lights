@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Sun Oct 11 21:59:12 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Sun Oct 11 22:53:21 2026
 
 
 EQU  SIGNATURE_000 0000001e
@@ -705,16 +705,16 @@ CSEG reset        00000017
 CSEG OCI1A_Interrupt 00000033
 EQU  prescale     00000005
 EQU  WGM          00000004
-CSEG charge_leds  00000050
-CSEG charge_runtimes 00000079
-CSEG charge_time  0000006b
+CSEG charge_leds  00000053
+CSEG charge_runtimes 0000007c
+CSEG charge_time  0000006e
 CSEG loop         00000031
-CSEG proximo_estado 0000003a
-CSEG exit         0000004c
-CSEG estado_valido 0000003e
-CSEG mapeamento   00000080
-CSEG tops         0000008c
-CSEG qtd_runs     00000098
+CSEG proximo_estado 0000003d
+CSEG exit         0000004f
+CSEG estado_valido 00000041
+CSEG mapeamento   00000083
+CSEG tops         0000008f
+CSEG qtd_runs     0000009b
 EQU  S1_G         00000001
 EQU  S1_Y         00000002
 EQU  S1_R         00000004

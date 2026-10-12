@@ -127,6 +127,17 @@ OCI1A_Interrupt:
 
 	; Decrementa o miserável
 	dec count_aux
+
+	; Verifica se tá no estado que o vermelho de pedestres pisca pra piscar ele
+	cpi state_count, 2
+	brne exit
+
+	; Seta 1 no bit 3 do PIND
+	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
+	; Se estava 0 (LED apagado), vira 1 (LED aceso)
+	; Se estava 1 (LED aceso), vira 0 (LED apagado)
+	sbi PIND, 3
+
 	rjmp exit
 
 
@@ -375,8 +386,8 @@ tops:
 	.dw 62499
 	
 	; Estado 3
-	; 1 de 4 segundos
-	.dw 62499
+	; 8 de 0.5 segundos
+	.dw 7812
 	
 	; Estado 4
 	; 1 de 2 segundos
@@ -422,5 +433,6 @@ tops:
 qtd_runs:
 ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
 ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
-.db 0, 2, 0, 0, 10, 0, 0, 14, 0, 0, 9, 0
+; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
+.db 0, 2, 8, 0, 10, 0, 0, 14, 0, 0, 9, 0
 ; ============================================================

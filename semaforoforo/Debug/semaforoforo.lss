@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Sun Oct 11 21:59:12 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Sun Oct 11 22:53:21 2026
 
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
@@ -1053,14 +1053,14 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  	; ----------------------------------------------------------
                                  
                                  	; Carregamento inicial da entrada
-000022 d02d                      	rcall charge_leds
+000022 d030                      	rcall charge_leds
                                  
                                  	; Carregamento inicial da qtd de vezes que vai rodar a miséria
-000023 d055                      	rcall charge_runtimes
+000023 d058                      	rcall charge_runtimes
                                  
                                  	; ---- Configura inicialmente o timer ----
                                  	; Carregando o top inicial em Z
-000024 d046                      	rcall charge_time
+000024 d049                      	rcall charge_time
                                  
                                  	;Habilita as interrupções do timer
                                  	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
@@ -1109,62 +1109,68 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  	; Verifica se count_aux tá zerado pra passar pro próximo estado
 000036 3040                      	cpi count_aux, 0
-000037 f011                      	breq proximo_estado
+000037 f029                      	breq proximo_estado
                                  
                                  	; Decrementa o miserável
 000038 954a                      	dec count_aux
-000039 c012                      	rjmp exit
+                                 
+000039 3002                      	cpi state_count, 2
+00003a f4a1                      	brne exit
+                                 
+00003b 9a4b                      	sbi PIND, 3
+                                 
+00003c c012                      	rjmp exit
                                  
                                  
                                  	proximo_estado:
                                  		; Passa pro próximo estado
-00003a 9503                      		inc state_count
+00003d 9503                      		inc state_count
                                  
                                  		; Verifica se chegou ao último estado
-00003b 300c                      		cpi state_count, state_limit
+00003e 300c                      		cpi state_count, state_limit
                                  		; Caso não pula pra carregar o próximo estado
-00003c f008                      		brlo estado_valido
+00003f f008                      		brlo estado_valido
                                  
                                  		; Volta pro estado inicial
-00003d 2700                      		clr state_count
+000040 2700                      		clr state_count
                                  
                                  	
                                  	; Carrega o próximo estado
                                  	estado_valido:
                                  		; Carrega os leds
-00003e d011                      		rcall charge_leds
+000041 d011                      		rcall charge_leds
                                  		
                                  		; ---- Carrega o tempo ----
                                  		; Para o timer a pauladas
-00003f e028                      		ldi temp, ((WGM >> 2) << WGM12)
-000040 9320 0081                 		sts TCCR1B, temp
+000042 e028                      		ldi temp, ((WGM >> 2) << WGM12)
+000043 9320 0081                 		sts TCCR1B, temp
                                  		
                                  		; Evita problemas com os delays em que o delay anterior é maior do que o próximo
                                  		; Segurança pra não perder o estado
                                  		; Basicamente só joga o contador pra 0
-000042 2722                      		clr temp
-000043 9320 0085                 		sts TCNT1H, temp
-000045 9320 0084                 		sts TCNT1L, temp
+000045 2722                      		clr temp
+000046 9320 0085                 		sts TCNT1H, temp
+000048 9320 0084                 		sts TCNT1L, temp
                                  		
                                  		; Carrega o tempo
-000047 d023                      		rcall charge_time
+00004a d023                      		rcall charge_time
                                  
                                  		; Ressucita o poço de vacilo na base da bicuda
-000048 e02d                      		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
-000049 9320 0081                 		sts TCCR1B, temp
+00004b e02d                      		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
+00004c 9320 0081                 		sts TCCR1B, temp
                                  		; ----------------------------------------------------------
                                  
                                  		; Carregamento inicial da qtd de vezes que vai rodar a miséria
-00004b d02d                      		rcall charge_runtimes
+00004e d02d                      		rcall charge_runtimes
                                  
                                  	; Saida
                                  	; Despusha o SREG
                                  	exit:
-00004c 912f                      		pop temp
-00004d bf2f                      		out SREG, temp
-00004e 912f                      		pop temp
+00004f 912f                      		pop temp
+000050 bf2f                      		out SREG, temp
+000051 912f                      		pop temp
                                  
-00004f 9518                      	reti
+000052 9518                      	reti
                                  ; ============================================================
                                  
                                  
@@ -1173,58 +1179,58 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_leds:
                                  	; Configurando z com o mapeamento inicial
-000050 e0f1                      	ldi ZH, high(mapeamento << 1)
-000051 e0e0                      	ldi ZL, low(mapeamento << 1)
+000053 e0f1                      	ldi ZH, high(mapeamento << 1)
+000054 e0e6                      	ldi ZL, low(mapeamento << 1)
                                  
                                  	; Multiplica o state_count por 2
-000052 2f20                      	mov temp, state_count
-000053 0f22                      	lsl temp
+000055 2f20                      	mov temp, state_count
+000056 0f22                      	lsl temp
                                  
                                  	; Incrementa para pegar o indice certo do mapeamento
-000054 0fe2                      	add ZL, temp
-000055 2722                      	clr temp
-000056 1ff2                      	adc ZH, temp
+000057 0fe2                      	add ZL, temp
+000058 2722                      	clr temp
+000059 1ff2                      	adc ZH, temp
                                  
                                  	; Carrega os leds do estado
-000057 9125                      	lpm temp, Z+ ; Lê o menos significativo
-000058 9134                      	lpm temp2, Z ; Lê o mais significativo
+00005a 9125                      	lpm temp, Z+ ; Lê o menos significativo
+00005b 9134                      	lpm temp2, Z ; Lê o mais significativo
                                  
                                  	; Carrega 6 leds na porta B (De 0 - 5)
-000059 932f                      	push temp
+00005c 932f                      	push temp
                                  	; Mascara pra pegar os 6 bits
-00005a 732f                      	andi temp, $3F
-00005b b925                      	out PORTB, temp
-00005c 912f                      	pop temp
+00005d 732f                      	andi temp, $3F
+00005e b925                      	out PORTB, temp
+00005f 912f                      	pop temp
                                  
                                  	; Gambiarra pra pegar os dois últimos bits que não foram para PORTB
                                  	; O lsl desloca os bits para << e joga o bit 7 no carry
                                  	; O rol desloca os bits de temp2 para << e joga o carry no bit 0
-00005d 0f22                      	lsl temp
-00005e 1f33                      	rol temp2
-00005f 0f22                      	lsl temp
-000060 1f33                      	rol temp2
+000060 0f22                      	lsl temp
+000061 1f33                      	rol temp2
+000062 0f22                      	lsl temp
+000063 1f33                      	rol temp2
                                  
                                  	; Carrega mais 6 leds na porta C (De 0 - 5)
-000061 2f23                      	mov temp, temp2
+000064 2f23                      	mov temp, temp2
                                  	; Mascara pra pegar os 6 bits
-000062 732f                      	andi temp, $3F
-000063 b928                      	out PORTC, temp
+000065 732f                      	andi temp, $3F
+000066 b928                      	out PORTC, temp
                                  
                                  	; Troca os 4 primeiros bits com os últimos 4 bits
-000064 9532                      	swap temp2
+000067 9532                      	swap temp2
                                  	; Mascara pra pegar os 2 bits
-000065 703c                      	andi temp2, $0C
+000068 703c                      	andi temp2, $0C
                                  	; Pega o que tá na porta D
-000066 b12b                      	in temp, PORTD
+000069 b12b                      	in temp, PORTD
                                  	; Zera só o que tiver nos bits que queremos
-000067 7f23                      	andi temp, $F3
+00006a 7f23                      	andi temp, $F3
                                  	; Junta com o que tem no temp 2
-000068 2b23                      	or temp, temp2
+00006b 2b23                      	or temp, temp2
                                  	; Escreve na porta D
-000069 b92b                      	out PORTD, temp
+00006c b92b                      	out PORTD, temp
                                  	; ----------------------------------------------------------
                                  
-00006a 9508                      	ret
+00006d 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1233,29 +1239,29 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_time:
                                  	; Carregando o top inicial em Z
-00006b e0f1                      	ldi ZH, high(tops << 1)
-00006c e1e8                      	ldi ZL, low(tops << 1)
+00006e e0f1                      	ldi ZH, high(tops << 1)
+00006f e1ee                      	ldi ZL, low(tops << 1)
                                  
                                  	; Artimanha pra multiplicar por 2
                                  	; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
                                  	; O caba não deixa fazer << 1 só porque state_count é registrador :(
-00006d 2f20                      	mov temp, state_count
-00006e 0f22                      	lsl temp
+000070 2f20                      	mov temp, state_count
+000071 0f22                      	lsl temp
                                  
                                  	; Funciona igual ao carregamento do próximo estado
-00006f 0fe2                      	add ZL, temp
-000070 2722                      	clr temp
-000071 1ff2                      	adc ZH, temp
+000072 0fe2                      	add ZL, temp
+000073 2722                      	clr temp
+000074 1ff2                      	adc ZH, temp
                                  
-000072 9135                      	lpm temp2, Z+ ; Lê o byte baixo
-000073 9124                      	lpm temp, Z ; Lê o byte alto
+000075 9135                      	lpm temp2, Z+ ; Lê o byte baixo
+000076 9124                      	lpm temp, Z ; Lê o byte alto
                                  
                                  	; Carrega o myte mais significativo do top
-000074 9320 0089                 	sts OCR1AH, temp
+000077 9320 0089                 	sts OCR1AH, temp
                                  	; Carrega o byte menos significativo do top
-000076 9330 0088                 	sts OCR1AL, temp2
+000079 9330 0088                 	sts OCR1AL, temp2
                                  
-000078 9508                      	ret
+00007b 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1264,18 +1270,18 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_runtimes:
                                  	; Carregando o top inicial em Z
-000079 e0f1                      	ldi ZH, high(qtd_runs << 1)
-00007a e3e0                      	ldi ZL, low(qtd_runs << 1)
+00007c e0f1                      	ldi ZH, high(qtd_runs << 1)
+00007d e3e6                      	ldi ZL, low(qtd_runs << 1)
                                  
                                  	; Funciona igual ao carregamento do próximo estado
-00007b 0fe0                      	add ZL, state_count
-00007c 2722                      	clr temp
-00007d 1ff2                      	adc ZH, temp
+00007e 0fe0                      	add ZL, state_count
+00007f 2722                      	clr temp
+000080 1ff2                      	adc ZH, temp
                                  
                                  	; Carrega o byte menos significativo do top
-00007e 9144                      	lpm count_aux, z
+000081 9144                      	lpm count_aux, z
                                  
-00007f 9508                      	ret
+000082 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1321,30 +1327,30 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  mapeamento:
                                  	; Estado 1
-000080 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000083 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 2
-000081 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
+000084 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
                                  	; Estado 3
                                  	; O de pedestre pisca
-000082 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000085 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 4
-000083 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000086 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 5
-000084 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
+000087 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
                                  	; Estado 6
-000085 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
+000088 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
                                  	; Estado 7
-000086 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
+000089 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 8
-000087 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
+00008a 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
                                  	; Estado 9
-000088 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
+00008b 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
                                  	; Estado 10
-000089 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+00008c 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 11
-00008a 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
+00008d 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
                                  	; Estado 12
-00008b 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
+00008e 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
                                  ; ============================================================
                                  
                                  
@@ -1354,51 +1360,51 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  tops:
                                  	; Estado 1
                                  	; 1 de 1 segundo
-00008c 3d08                      	.dw 15624
+00008f 3d08                      	.dw 15624
                                  
                                  	; Estado 2
                                  	; 3 de 4 segundos
-00008d f423                      	.dw 62499
+000090 f423                      	.dw 62499
                                  	
                                  	; Estado 3
-                                 	; 1 de 4 segundos
-00008e f423                      	.dw 62499
+                                 	; 8 de 0.5 segundos
+000091 1e84                      	.dw 7812
                                  	
                                  	; Estado 4
                                  	; 1 de 2 segundos
-00008f 7a11                      	.dw 31249
+000092 7a11                      	.dw 31249
                                  	
                                  	; Estado 5
                                  	; 11 de 2 segundos
-000090 7a11                      	.dw 31249
+000093 7a11                      	.dw 31249
                                  	
                                  	; Estado 6
                                  	; 1 de 4 segundos
-000091 f423                      	.dw 62499
+000094 f423                      	.dw 62499
                                  	
                                  	; Estado 7
                                  	; 1 de 1 segundo
-000092 3d08                      	.dw 15624
+000095 3d08                      	.dw 15624
                                  
                                  	; Estado 8
                                  	; 15 de 4 segundos
-000093 f423                      	.dw 62499
+000096 f423                      	.dw 62499
                                  	
                                  	; Estado 9
                                  	; 1 de 4 segundos
-000094 f423                      	.dw 62499
+000097 f423                      	.dw 62499
                                  
                                  	; Estado 10
                                  	; 1 de 1 segundo
-000095 3d08                      	.dw 15624
+000098 3d08                      	.dw 15624
                                  
                                  	; Estado 11
                                  	; 10 de aproximadamente 2.5 segundos
-000096 9896                      	.dw 39062
+000099 9896                      	.dw 39062
                                  
                                  	; Estado 12
                                  	; 1 de 4 segundos
-000097 f423                      	.dw 62499
+00009a f423                      	.dw 62499
                                  ; ============================================================
                                  
                                  
@@ -1408,12 +1414,13 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  qtd_runs:
                                  ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
                                  ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
-000098 0200
-000099 0000
-00009a 000a
-00009b 0e00
-00009c 0000
-00009d 0009                      .db 0, 2, 0, 0, 10, 0, 0, 14, 0, 0, 9, 0
+                                 ; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
+00009b 0200
+00009c 0008
+00009d 000a
+00009e 0e00
+00009f 0000
+0000a0 0009                      .db 0, 2, 8, 0, 10, 0, 0, 14, 0, 0, 9, 0
 
 
 RESOURCE USE INFORMATION
@@ -1433,7 +1440,7 @@ counted separately from r26..r31 here.
 "ATmega328P" register use summary:
 x  :   0 y  :   0 z  :   5 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
 r5 :   0 r6 :   0 r7 :   0 r8 :   0 r9 :   0 r10:   0 r11:   0 r12:   0 
-r13:   0 r14:   0 r15:   0 r16:   7 r17:   0 r18:  58 r19:   9 r20:   3 
+r13:   0 r14:   0 r15:   0 r16:   8 r17:   0 r18:  58 r19:   9 r20:   3 
 r21:   0 r22:   0 r23:   0 r24:   0 r25:   0 r26:   0 r27:   0 r28:   0 
 r29:   0 r30:   6 r31:   6 
 Registers used: 7 out of 35 (20.0%)
@@ -1443,27 +1450,27 @@ Registers used: 7 out of 35 (20.0%)
 andi  :   4 asr   :   0 bclr  :   0 bld   :   0 brbc  :   0 brbs  :   0 
 brcc  :   0 brcs  :   0 break :   0 breq  :   1 brge  :   0 brhc  :   0 
 brhs  :   0 brid  :   0 brie  :   0 brlo  :   1 brlt  :   0 brmi  :   0 
-brne  :   0 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 
+brne  :   1 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 
 brvs  :   0 bset  :   0 bst   :   0 call  :   0 cbi   :   0 cbr   :   0 
 clc   :   0 clh   :   0 cli   :   0 cln   :   0 clr   :   6 cls   :   0 
 clt   :   0 clv   :   0 clz   :   0 com   :   0 cp    :   0 cpc   :   0 
-cpi   :   2 cpse  :   0 dec   :   1 eor   :   0 fmul  :   0 fmuls :   0 
+cpi   :   3 cpse  :   0 dec   :   1 eor   :   0 fmul  :   0 fmuls :   0 
 fmulsu:   0 icall :   0 ijmp  :   0 in    :   2 inc   :   1 jmp   :   2 
 ld    :   0 ldd   :   0 ldi   :  15 lds   :   1 lpm   :   8 lsl   :   4 
 lsr   :   0 mov   :   3 movw  :   0 mul   :   0 muls  :   0 mulsu :   0 
 neg   :   0 nop   :   0 or    :   1 ori   :   0 out   :   9 pop   :   3 
 push  :   3 rcall :   6 ret   :   3 reti  :   1 rjmp  :   2 rol   :   2 
-ror   :   0 sbc   :   0 sbci  :   0 sbi   :   0 sbic  :   0 sbis  :   0 
+ror   :   0 sbc   :   0 sbci  :   0 sbi   :   1 sbic  :   0 sbis  :   0 
 sbiw  :   0 sbr   :   1 sbrc  :   0 sbrs  :   0 sec   :   0 seh   :   0 
 sei   :   1 sen   :   0 ser   :   0 ses   :   0 set   :   0 sev   :   0 
 sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :   9 
 sub   :   0 subi  :   0 swap  :   1 tst   :   0 wdr   :   0 
-Instructions used: 29 out of 113 (25.7%)
+Instructions used: 31 out of 113 (27.4%)
 
 "ATmega328P" memory use summary [bytes]:
 Segment   Begin    End      Code   Data   Used    Size   Use%
 ---------------------------------------------------------------
-[.cseg] 0x000000 0x00013c    216     60    276   32768   0.8%
+[.cseg] 0x000000 0x000142    222     60    282   32768   0.9%
 [.dseg] 0x000100 0x000100      0      0      0    2048   0.0%
 [.eseg] 0x000000 0x000000      0      0      0    1024   0.0%
 
