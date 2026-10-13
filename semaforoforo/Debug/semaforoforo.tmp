@@ -22,17 +22,34 @@
   <FILE>semaforoforo.lss</FILE>
  </OUTPUT_FILES>
  <LABELS>
-  <reset><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>37</LINE></reset>
-  <OCI1A_Interrupt><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>118</LINE></OCI1A_Interrupt>
-  <charge_leds><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>194</LINE></charge_leds>
-  <charge_runtimes><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>285</LINE></charge_runtimes>
-  <charge_time><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>254</LINE></charge_time>
-  <loop><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>109</LINE></loop>
-  <proximo_estado><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>139</LINE></proximo_estado>
-  <exit><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>182</LINE></exit>
-  <estado_valido><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>153</LINE></estado_valido>
-  <mapeamento><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>342</LINE></mapeamento>
-  <tops><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>374</LINE></tops>
-  <qtd_runs><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>428</LINE></qtd_runs>
+  <reset><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>43</LINE></reset>
+  <OCI1A_Interrupt><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>215</LINE></OCI1A_Interrupt>
+  <USART_UDRE_Interrupt><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>164</LINE></USART_UDRE_Interrupt>
+  <charge_serial><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>417</LINE></charge_serial>
+  <charge_leds><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>306</LINE></charge_leds>
+  <charge_runtimes><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>397</LINE></charge_runtimes>
+  <charge_time><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>366</LINE></charge_time>
+  <loop><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>155</LINE></loop>
+  <fim_serial><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>195</LINE></fim_serial>
+  <saida_serial><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>201</LINE></saida_serial>
+  <proximo_estado><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>245</LINE></proximo_estado>
+  <exit><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>291</LINE></exit>
+  <estado_valido><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>259</LINE></estado_valido>
+  <mapeamento><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>488</LINE></mapeamento>
+  <tops><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>520</LINE></tops>
+  <qtd_runs><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>574</LINE></qtd_runs>
+  <serial_mensage><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>638</LINE></serial_mensage>
+  <msg1><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>586</LINE></msg1>
+  <msg2><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>590</LINE></msg2>
+  <msg3><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>594</LINE></msg3>
+  <msg4><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>598</LINE></msg4>
+  <msg5><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>602</LINE></msg5>
+  <msg6><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>606</LINE></msg6>
+  <msg7><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>610</LINE></msg7>
+  <msg8><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>614</LINE></msg8>
+  <msg9><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>618</LINE></msg9>
+  <msg10><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>622</LINE></msg10>
+  <msg11><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>626</LINE></msg11>
+  <msg12><FILE>C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm</FILE><LINE>630</LINE></msg12>
  </LABELS>
 </ASSEMBLER_INFO>

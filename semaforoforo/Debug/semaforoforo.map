@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Sun Oct 11 22:53:21 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Mon Oct 12 21:27:14 2026
 
 
 EQU  SIGNATURE_000 0000001e
@@ -696,25 +696,33 @@ EQU  TWIaddr      00000030
 EQU  SPMRaddr     00000032
 EQU  INT_VECTORS_SIZE 00000034
 DEF  state_count  r16
-DEF  segundos     r17
-DEF  temp         r18
-DEF  temp2        r19
-DEF  count_aux    r20
+DEF  serial_high  r17
+DEF  serial_low   r18
+DEF  temp         r19
+DEF  temp2        r20
+DEF  count_aux    r21
 SET  state_limit  0000000c
-CSEG reset        00000017
-CSEG OCI1A_Interrupt 00000033
+CSEG reset        00000027
+CSEG OCI1A_Interrupt 0000006a
+CSEG USART_UDRE_Interrupt 00000050
+EQU  baundrate    00002580
+EQU  UBRRvalue    00000067
 EQU  prescale     00000005
 EQU  WGM          00000004
-CSEG charge_leds  00000053
-CSEG charge_runtimes 0000007c
-CSEG charge_time  0000006e
-CSEG loop         00000031
-CSEG proximo_estado 0000003d
-CSEG exit         0000004f
-CSEG estado_valido 00000041
-CSEG mapeamento   00000083
-CSEG tops         0000008f
-CSEG qtd_runs     0000009b
+CSEG charge_serial 000000c1
+CSEG charge_leds  00000091
+CSEG charge_runtimes 000000ba
+CSEG charge_time  000000ac
+CSEG loop         0000004e
+CSEG fim_serial   0000005f
+CSEG saida_serial 00000064
+CSEG proximo_estado 00000077
+CSEG exit         0000008a
+CSEG estado_valido 0000007b
+CSEG mapeamento   000000d2
+CSEG tops         000000de
+CSEG qtd_runs     000000ea
+CSEG serial_mensage 000002a0
 EQU  S1_G         00000001
 EQU  S1_Y         00000002
 EQU  S1_R         00000004
@@ -729,3 +737,15 @@ EQU  S4_Y         00000400
 EQU  S4_R         00000800
 EQU  S5_G         00001000
 EQU  S5_R         00002000
+CSEG msg1         000000f0
+CSEG msg2         00000115
+CSEG msg3         00000138
+CSEG msg4         00000161
+CSEG msg5         00000186
+CSEG msg6         000001a8
+CSEG msg7         000001cb
+CSEG msg8         000001ee
+CSEG msg9         00000210
+CSEG msg10        00000234
+CSEG msg11        00000259
+CSEG msg12        0000027c
