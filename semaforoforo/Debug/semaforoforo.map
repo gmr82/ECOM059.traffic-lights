@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 10:11:32 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 14:40:58 2026
 
 
 EQU  SIGNATURE_000 0000001e
@@ -703,26 +703,27 @@ DEF  temp2        r20
 DEF  count_aux    r21
 SET  state_limit  0000000c
 CSEG reset        00000027
-CSEG OCI1A_Interrupt 0000006a
-CSEG USART_UDRE_Interrupt 00000050
+CSEG OCI1A_Interrupt 0000006f
+CSEG USART_UDRE_Interrupt 00000055
+EQU  delay        000001f4
+EQU  prescale     00000004
+EQU  prescale_div 00000100
+EQU  TOP          00007a11
 EQU  baundrate    00002580
 EQU  UBRRvalue    00000067
-EQU  prescale     00000005
 EQU  WGM          00000004
-CSEG charge_serial 000000c0
-CSEG charge_leds  00000091
-CSEG charge_runtimes 000000b9
-CSEG charge_time  000000ab
-CSEG loop         0000004e
-CSEG fim_serial   0000005f
-CSEG saida_serial 00000064
-CSEG proximo_estado 00000077
-CSEG exit         0000008a
-CSEG estado_valido 0000007b
-CSEG mapeamento   000000d1
-CSEG tops         000000dd
-CSEG qtd_runs     000000e9
-CSEG serial_mensage 0000029f
+CSEG charge_serial 000000b0
+CSEG charge_leds  0000008f
+CSEG charge_runtimes 000000a9
+CSEG loop         00000053
+CSEG fim_serial   00000064
+CSEG saida_serial 00000069
+CSEG proximo_estado 0000007c
+CSEG exit         00000088
+CSEG estado_valido 00000080
+CSEG mapeamento   000000c1
+CSEG qtd_runs     000000cd
+CSEG serial_mensage 00000283
 EQU  S1_G         00000001
 EQU  S1_Y         00000002
 EQU  S1_R         00000004
@@ -737,15 +738,15 @@ EQU  S4_Y         00000400
 EQU  S4_R         00000800
 EQU  S5_G         00001000
 EQU  S5_R         00002000
-CSEG msg1         000000ef
-CSEG msg2         00000114
-CSEG msg3         00000137
-CSEG msg4         00000160
-CSEG msg5         00000185
-CSEG msg6         000001a7
-CSEG msg7         000001ca
-CSEG msg8         000001ed
-CSEG msg9         0000020f
-CSEG msg10        00000233
-CSEG msg11        00000258
-CSEG msg12        0000027b
+CSEG msg1         000000d3
+CSEG msg2         000000f8
+CSEG msg3         0000011b
+CSEG msg4         00000144
+CSEG msg5         00000169
+CSEG msg6         0000018b
+CSEG msg7         000001ae
+CSEG msg8         000001d1
+CSEG msg9         000001f3
+CSEG msg10        00000217
+CSEG msg11        0000023c
+CSEG msg12        0000025f

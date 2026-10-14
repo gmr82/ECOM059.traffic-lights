@@ -21,6 +21,9 @@
 .def temp2 = r20
 .def count_aux = r21
 
+.def dezena = r22
+.def unidade = r23
+
 ; Limite de estados
 .set state_limit = 12
 
@@ -55,13 +58,19 @@ reset:
 
 	; Define o clock como 16MHz
 	#define CLOCK 16.0e6
+	; Define um delay de 500ms
+	.equ delay = 500
+	; Fixa o prescale em 256
+	.equ prescale = 0b0100
+	; Valor do prescale fixado
+	.equ prescale_div = 256
+	; Expressão que calcula o TOP
+	.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1)
+
 	; Define o baundrate em 9600 ideal para uma comunicação moderada
 	.equ baundrate = 9600
 	; Valor do UBRR
 	.equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1)
-
-	; Fixa o prescale máximo que essa bagaça usa, pelo amor de Deus... É muito pouco D:
-	.equ prescale = 0b0101
 
 	; Pra configurar o timer no modo ctc (contar tanto cansa)
 	.equ WGM = 0b0100
@@ -83,7 +92,7 @@ reset:
 	ldi temp, (0b11 << UCSZ00)
 	sts UCSR0C, temp
 
-	; Habilidando a transmissão dos sinais extraterrestres
+	; Habilidando a transmissão
 	ldi temp, (1 << TXEN0)
 	sts UCSR0B, temp
 
@@ -117,8 +126,12 @@ reset:
 
 
 	; ---- Configura inicialmente o timer ----
-	; Carregando o top inicial em Z
-	rcall charge_time
+	
+	; Carrega o valor de top no registrador OCR1A
+	ldi temp, high(TOP)
+	sts OCR1AH, temp
+	ldi temp, low(TOP)
+	sts OCR1AL, temp
 
 	;Habilita as interrupções do timer
 	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
@@ -128,7 +141,7 @@ reset:
 	;Carrega para o registrador de controle do timer
 	sts TIMSK1, temp
 
-	; Configurar o timer bolado pra contar (maldito só sabe contar até 4.12s)
+	; Configurar o timer bolado pra contar (maldito só sabe contar até 0.5s	)
 	; WGM&0b11 = 0b0100 & 0b0011 = 0b0000 
 	ldi temp, ((WGM&0b11) << WGM10)
 	sts TCCR1A, temp
@@ -222,19 +235,19 @@ OCI1A_Interrupt:
 	push ZL
 	push ZH
 
-	; Verifica se count_aux tá zerado pra passar pro próximo estado
+	; Verifica o contador para passar para o próximo estado
 	cpi count_aux, 0
 	breq proximo_estado
 
-	; Decrementa o miserável
+	; Caso o contador não seja 0 decrementa ele
 	dec count_aux
 
-	; Verifica se tá no estado que o vermelho de pedestres pisca pra piscar ele
+	; Verifica se está no estado (Fechando para pedestres), assim faz o pisca pisca pro led
 	cpi state_count, 2
 	brne exit
 
-	; Seta 1 no bit 3 do PIND
-	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
+	; Seta 1 no bit 7 do PIND
+	; A ideia é que se escrever 1 no PIND ele inverte o valor do bit
 	; Se estava 0 (LED apagado), vira 1 (LED aceso)
 	; Se estava 1 (LED aceso), vira 0 (LED apagado)
 	sbi PIND, 7
@@ -263,25 +276,10 @@ OCI1A_Interrupt:
 		; Prepara a ablação do caba
 		rcall charge_serial
 		
-		; ---- Carrega o tempo ----
-		; Para o timer a pauladas
-		ldi temp, ((WGM >> 2) << WGM12)
-		sts TCCR1B, temp
-		
-		; Evita problemas com os delays em que o delay anterior é maior do que o próximo
-		; Segurança pra não perder o estado
-		; Basicamente só joga o contador pra 0
+		; Zera o contador do timer
 		clr temp
 		sts TCNT1H, temp
 		sts TCNT1L, temp
-		
-		; Carrega o tempo
-		rcall charge_time
-
-		; Ressucita o poço de vacilo na base da bicuda
-		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
-		sts TCCR1B, temp
-		; ----------------------------------------------------------
 
 		; Carregamento inicial da qtd de vezes que vai rodar a miséria
 		rcall charge_runtimes
@@ -354,37 +352,6 @@ charge_leds:
 	; Escreve na porta D
 	out PORTD, temp
 	; ----------------------------------------------------------
-
-	ret
-; ============================================================
-
-
-; ============================================================
-; Carrega o mapeamento dos timers
-; ============================================================
-charge_time:
-	; Carregando o top inicial em Z
-	ldi ZH, high(tops << 1)
-	ldi ZL, low(tops << 1)
-
-	; Artimanha pra multiplicar por 2
-	; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
-	; O caba não deixa fazer << 1 só porque state_count é registrador :(
-	mov temp, state_count
-	lsl temp
-
-	; Funciona igual ao carregamento do próximo estado
-	add ZL, temp
-	clr temp
-	adc ZH, temp
-
-	lpm temp2, Z+ ; Lê o byte baixo
-	lpm temp, Z ; Lê o byte alto
-
-	; Carrega o myte mais significativo do top
-	sts OCR1AH, temp
-	; Carrega o byte menos significativo do top
-	sts OCR1AL, temp2
 
 	ret
 ; ============================================================
@@ -514,67 +481,24 @@ mapeamento:
 
 
 ; ============================================================
-; Mapeamento dos tops :)
-; ============================================================
-tops:
-	; Estado 1
-	; 1 de 1 segundo
-	.dw 15624
-
-	; Estado 2
-	; 3 de 4 segundos
-	.dw 62499
-	
-	; Estado 3
-	; 8 de 0.5 segundos
-	.dw 7812
-	
-	; Estado 4
-	; 1 de 2 segundos
-	.dw 31249
-	
-	; Estado 5
-	; 11 de 2 segundos
-	.dw 31249
-	
-	; Estado 6
-	; 1 de 4 segundos
-	.dw 62499
-	
-	; Estado 7
-	; 1 de 1 segundo
-	.dw 15624
-
-	; Estado 8
-	; 15 de 4 segundos
-	.dw 62499
-	
-	; Estado 9
-	; 1 de 4 segundos
-	.dw 62499
-
-	; Estado 10
-	; 1 de 1 segundo
-	.dw 15624
-
-	; Estado 11
-	; 10 de aproximadamente 2.5 segundos
-	.dw 39062
-
-	; Estado 12
-	; 1 de 4 segundos
-	.dw 62499
-; ============================================================
-
-
-; ============================================================
 ; Mapeamento da quantidade de vezes que vai acontecer as interrupções
 ; ============================================================
 qtd_runs:
 ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
 ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
 ; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
-.db 0, 2, 7, 0, 10, 0, 0, 14, 0, 0, 9, 0
+; 1s -> vai rodar 2 vezes de 0.5s
+; 12s -> vai rodar 24 vezes de 0.5s
+; 4s -> vai rodar 8 vezes de 0.5s
+; 2s -> vai rodar 4 vezes de 0.5s
+; 22s -> vai rodar 44 vezes de 0.5s
+; 4s -> vai rodar 8 vezes de 0.5s
+; 1s -> vai rodar 2 vezes de 0.5s
+; 60s -> vai rodar 120 vezes de 0.5s
+; 4s -> vai rodar 8 vezes de 0.5s
+; 25s -> vai rodar 60 vezes de 0.5s
+; 4s -> vai rodar 8 vezes de 0.5s
+.db 1, 23, 7, 3, 43, 7, 1, 119, 7, 1, 49, 7
 ; ============================================================
 
 
@@ -647,4 +571,28 @@ serial_mensage:
 	.dw msg10
 	.dw msg11
 	.dw msg12
+; ============================================================
+
+
+; ============================================================
+; Mapeamento do BCD
+; ============================================================
+; 1s -> 0 - Dezena, 1 - Unidade
+; 12s -> 1 - Dezena, 2 - Unidade
+; 4s -> 0 - Dezena, 4 - Unidade
+; 2s -> 0 - Dezena, 2 - Unidade
+; 22s -> 2 - Dezena, 2 - Unidade
+; 4s -> 0 - Dezena, 4 - Unidadde
+; 1s -> 0 - Dezena, 1 - Unidade
+; 60s -> 6 - Dezena, 0 - Unidade
+; 4s -> 0 - Dezena, 4 - Unidadde
+; 25s -> 2 - Dezena, 5 - Unidade
+; 4s -> 0 - Dezena, 4 - Unidadde
+bcd_maping:
+	.db 0, 1
+	.db 1, 2
+	.db 0, 4
+	.db 0, 2
+	.db 2, 2
+	.db 
 ; ============================================================

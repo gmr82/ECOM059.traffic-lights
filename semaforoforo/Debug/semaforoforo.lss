@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 10:11:32 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 14:40:58 2026
 
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
@@ -1016,12 +1016,12 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Move o PC para o endereço da interrupção do timer
                                  .org OC1Aaddr
                                  ; Desvia para a subrotina de tratamento do timer
-000016 c053                      rjmp OCI1A_Interrupt
+000016 c058                      rjmp OCI1A_Interrupt
                                  
                                  ; Move o PC para o endereço da interrupção de envio
                                  .org UDREaddr
                                  ; Desvia para a subrotina de tratamento de envio da serial
-000026 c029                      rjmp USART_UDRE_Interrupt
+000026 c02e                      rjmp USART_UDRE_Interrupt
                                  
                                  ; ============================================================
                                  ; Inicia todos os parâmetros
@@ -1041,13 +1041,19 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  	; Define o clock como 16MHz
                                  	#define CLOCK 16.0e6
+                                 	; Define um delay de 500ms
+                                 	.equ delay = 500
+                                 	; Fixa o prescale em 1024
+                                 	.equ prescale = 0b0100
+                                 	; Valor do prescale fixado
+                                 	.equ prescale_div = 256
+                                 	; Expressão que calcula o TOP
+                                 	.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1)
+                                 
                                  	; Define o baundrate em 9600 ideal para uma comunicação moderada
                                  	.equ baundrate = 9600
                                  	; Valor do UBRR
                                  	.equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1)
-                                 
-                                 	; Fixa o prescale máximo que essa bagaça usa, pelo amor de Deus... É muito pouco D:
-                                 	.equ prescale = 0b0101
                                  
                                  	; Pra configurar o timer no modo ctc (contar tanto cansa)
                                  	.equ WGM = 0b0100
@@ -1073,7 +1079,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 000035 e038                      	ldi temp, (1 << TXEN0)
 000036 9330 00c1                 	sts UCSR0B, temp
                                  
-000038 d087                      	rcall charge_serial
+000038 d077                      	rcall charge_serial
                                  	; ----------------------------------------------------------
                                  
                                  
@@ -1093,44 +1099,48 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  
                                  	; ---- Carregamento inicial da entrada ----
-00003f d051                      	rcall charge_leds
+00003f d04f                      	rcall charge_leds
                                  	; ----------------------------------------------------------
                                  
                                  
                                  	; ---- Carregamento inicial da qtd de vezes que vai rodar a miséria ----
-000040 d078                      	rcall charge_runtimes
+000040 d068                      	rcall charge_runtimes
                                  	; ----------------------------------------------------------
                                  
                                  
                                  	; ---- Configura inicialmente o timer ----
-                                 	; Carregando o top inicial em Z
-000041 d069                      	rcall charge_time
+                                 	
+                                 	; Carrega o valor de top no registrador OCR1A
+000041 e73a                      	ldi temp, high(TOP)
+000042 9330 0089                 	sts OCR1AH, temp
+000044 e131                      	ldi temp, low(TOP)
+000045 9330 0088                 	sts OCR1AL, temp
                                  
                                  	;Habilita as interrupções do timer
                                  	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
-000042 9130 006f                 	lds temp, TIMSK1
+000047 9130 006f                 	lds temp, TIMSK1
                                  	;Seta OCIE1A para 1, habilitando as interrupções via timer
-000044 6032                      	sbr temp, 1 << OCIE1A
+000049 6032                      	sbr temp, 1 << OCIE1A
                                  	;Carrega para o registrador de controle do timer
-000045 9330 006f                 	sts TIMSK1, temp
+00004a 9330 006f                 	sts TIMSK1, temp
                                  
                                  	; Configurar o timer bolado pra contar (maldito só sabe contar até 4.12s)
                                  	; WGM&0b11 = 0b0100 & 0b0011 = 0b0000 
-000047 e030                      	ldi temp, ((WGM&0b11) << WGM10)
-000048 9330 0080                 	sts TCCR1A, temp
+00004c e030                      	ldi temp, ((WGM&0b11) << WGM10)
+00004d 9330 0080                 	sts TCCR1A, temp
                                  
                                  	;2 bits mais significativos de WGM e seleção de clock
                                  	; WGM >> 2 = 0b0100 >> 2 = 0b0001
                                  	; (WGM >> 2) << WGM12 = (0b0001 << 3) = 0b0001000
                                  	; (PRESCALE << CS10) = 0b101 << 0 = 0b101
                                  	; 0b0001000 | 0b101 = 0b0001101
-00004a e03d                      	ldi temp, ((WGM>>2)<<WGM12)|(prescale << CS10)
-00004b 9330 0081                 	sts TCCR1B, temp
+00004f e03c                      	ldi temp, ((WGM>>2)<<WGM12)|(prescale << CS10)
+000050 9330 0081                 	sts TCCR1B, temp
                                  	; ----------------------------------------------------------
                                  
                                  
                                  	; ---- Habilita globalmente as interrupções ----
-00004d 9478                      	sei
+000052 9478                      	sei
                                  	; ----------------------------------------------------------
                                  ; ============================================================
                                  	
@@ -1139,7 +1149,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Looping principal
                                  ; ============================================================
                                  loop:
-00004e 940c 004e                 	jmp loop
+000053 940c 0053                 	jmp loop
                                  
                                  ; ============================================================
                                  
@@ -1148,50 +1158,50 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Tratamento da interrupção de mensagem
                                  ; ============================================================
                                  USART_UDRE_Interrupt:
-000050 933f                      	push temp
-000051 b73f                      	in temp, SREG
-000052 933f                      	push temp
+000055 933f                      	push temp
+000056 b73f                      	in temp, SREG
+000057 933f                      	push temp
                                  
-000053 93ff                      	push ZH
-000054 93ef                      	push ZL
+000058 93ff                      	push ZH
+000059 93ef                      	push ZL
                                  
                                  	; Carrega o endereço da mensagem no registrador Z
-000055 2fe2                      	mov ZL, serial_low
-000056 2ff1                      	mov ZH, serial_high
+00005a 2fe2                      	mov ZL, serial_low
+00005b 2ff1                      	mov ZH, serial_high
                                  
                                  	; Carrega o byte que tá em Z e incrementa
-000057 9135                      	lpm temp, Z+
+00005c 9135                      	lpm temp, Z+
                                  
                                  	; Guarda o endereço do Z
-000058 2f2e                      	mov serial_low, ZL
-000059 2f1f                      	mov serial_high, ZH
+00005d 2f2e                      	mov serial_low, ZL
+00005e 2f1f                      	mov serial_high, ZH
                                  
                                  	; tst verifica se o valor de temp é 0, se for ele levanta a flag de zero no SREG
-00005a 2333                      	tst temp
+00005f 2333                      	tst temp
                                  	; Desvia para desligar a baixaria
-00005b f019                      	breq fim_serial
+000060 f019                      	breq fim_serial
                                  
                                  	; Manda o caracter pra o UDR
-00005c 9330 00c6                 	sts UDR0, temp
+000061 9330 00c6                 	sts UDR0, temp
                                  
                                  	; Desvia para a saída da função
-00005e c005                      	rjmp saida_serial
+000063 c005                      	rjmp saida_serial
                                  
                                  	; Desliga a interrupção da serial
                                  	fim_serial:
-00005f 9130 00c1                 		lds temp, UCSR0B
-000061 7d3f                      		andi temp, ~(1 << UDRIE0)
-000062 9330 00c1                 		sts UCSR0B, temp
+000064 9130 00c1                 		lds temp, UCSR0B
+000066 7d3f                      		andi temp, ~(1 << UDRIE0)
+000067 9330 00c1                 		sts UCSR0B, temp
                                  
                                  	; Saida
                                  	saida_serial:
-000064 91ef                      		pop ZL
-000065 91ff                      		pop ZH
-000066 913f                      		pop temp
-000067 bf3f                      		out SREG, temp
-000068 913f                      		pop temp
+000069 91ef                      		pop ZL
+00006a 91ff                      		pop ZH
+00006b 913f                      		pop temp
+00006c bf3f                      		out SREG, temp
+00006d 913f                      		pop temp
                                  
-000069 9518                      		reti
+00006e 9518                      		reti
                                  ; ============================================================
                                  
                                  
@@ -1200,89 +1210,74 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  OCI1A_Interrupt:
                                  	; conceitualmente salvando o sreg ('_')
-00006a 933f                      	push temp
-00006b b73f                      	in temp, SREG
-00006c 933f                      	push temp
+00006f 933f                      	push temp
+000070 b73f                      	in temp, SREG
+000071 933f                      	push temp
                                  
-00006d 934f                      	push temp2
-00006e 93ef                      	push ZL
-00006f 93ff                      	push ZH
+000072 934f                      	push temp2
+000073 93ef                      	push ZL
+000074 93ff                      	push ZH
                                  
                                  	; Verifica se count_aux tá zerado pra passar pro próximo estado
-000070 3050                      	cpi count_aux, 0
-000071 f029                      	breq proximo_estado
+000075 3050                      	cpi count_aux, 0
+000076 f029                      	breq proximo_estado
                                  
                                  	; Decrementa o miserável
-000072 955a                      	dec count_aux
+000077 955a                      	dec count_aux
                                  
                                  	; Verifica se tá no estado que o vermelho de pedestres pisca pra piscar ele
-000073 3002                      	cpi state_count, 2
-000074 f4a9                      	brne exit
+000078 3002                      	cpi state_count, 2
+000079 f471                      	brne exit
                                  
                                  	; Seta 1 no bit 3 do PIND
                                  	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
                                  	; Se estava 0 (LED apagado), vira 1 (LED aceso)
                                  	; Se estava 1 (LED aceso), vira 0 (LED apagado)
-000075 9a4f                      	sbi PIND, 7
+00007a 9a4f                      	sbi PIND, 7
                                  
-000076 c013                      	rjmp exit
+00007b c00c                      	rjmp exit
                                  
                                  
                                  	proximo_estado:
                                  		; Passa pro próximo estado
-000077 9503                      		inc state_count
+00007c 9503                      		inc state_count
                                  
                                  		; Verifica se chegou ao último estado
-000078 300c                      		cpi state_count, state_limit
+00007d 300c                      		cpi state_count, state_limit
                                  		; Caso não pula pra carregar o próximo estado
-000079 f008                      		brlo estado_valido
+00007e f008                      		brlo estado_valido
                                  
                                  		; Volta pro estado inicial
-00007a 2700                      		clr state_count
+00007f 2700                      		clr state_count
                                  
                                  	
                                  	; Carrega o próximo estado
                                  	estado_valido:
                                  		; Carrega os leds
-00007b d015                      		rcall charge_leds
+000080 d00e                      		rcall charge_leds
                                  
                                  		; Prepara a ablação do caba
-00007c d043                      		rcall charge_serial
+000081 d02e                      		rcall charge_serial
                                  		
-                                 		; ---- Carrega o tempo ----
-                                 		; Para o timer a pauladas
-00007d e038                      		ldi temp, ((WGM >> 2) << WGM12)
-00007e 9330 0081                 		sts TCCR1B, temp
-                                 		
-                                 		; Evita problemas com os delays em que o delay anterior é maior do que o próximo
-                                 		; Segurança pra não perder o estado
-                                 		; Basicamente só joga o contador pra 0
-000080 2733                      		clr temp
-000081 9330 0085                 		sts TCNT1H, temp
-000083 9330 0084                 		sts TCNT1L, temp
-                                 		
-                                 		; Carrega o tempo
-000085 d025                      		rcall charge_time
-                                 
-                                 		; Ressucita o poço de vacilo na base da bicuda
-000086 e03d                      		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
-000087 9330 0081                 		sts TCCR1B, temp
-                                 		; ----------------------------------------------------------
+                                 		; Zera o contador do timer
+000082 2733                      		clr temp
+000083 9330 0085                 		sts TCNT1H, temp
+000085 9330 0084                 		sts TCNT1L, temp
                                  
                                  		; Carregamento inicial da qtd de vezes que vai rodar a miséria
-000089 d02f                      		rcall charge_runtimes
+000087 d021                      		rcall charge_runtimes
                                  
                                  	; Saida
                                  	; Despusha o SREG
                                  	exit:
-00008a 91ff                      		pop ZH
-00008b 91ef                      		pop ZL
-00008c 914f                      		pop temp2
+000088 91ff                      		pop ZH
+000089 91ef                      		pop ZL
+00008a 914f                      		pop temp2
+00008b 913f                      		pop temp
+00008c bf3f                      		out SREG, temp
 00008d 913f                      		pop temp
-00008e bf3f                      		out SREG, temp
-00008f 913f                      		pop temp
                                  
-000090 9518                      	reti
+00008e 9518                      	reti
                                  ; ============================================================
                                  
                                  
@@ -1291,88 +1286,57 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_leds:
                                  	; Configurando z com o mapeamento inicial
-000091 e0f1                      	ldi ZH, high(mapeamento << 1)
-000092 eae2                      	ldi ZL, low(mapeamento << 1)
+00008f e0f1                      	ldi ZH, high(mapeamento << 1)
+000090 e8e2                      	ldi ZL, low(mapeamento << 1)
                                  
                                  	; Multiplica o state_count por 2
-000093 2f30                      	mov temp, state_count
-000094 0f33                      	lsl temp
+000091 2f30                      	mov temp, state_count
+000092 0f33                      	lsl temp
                                  
                                  	; Incrementa para pegar o indice certo do mapeamento
-000095 0fe3                      	add ZL, temp
-000096 2733                      	clr temp
-000097 1ff3                      	adc ZH, temp
+000093 0fe3                      	add ZL, temp
+000094 2733                      	clr temp
+000095 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega os leds do estado
-000098 9135                      	lpm temp, Z+ ; Lê o menos significativo
-000099 9144                      	lpm temp2, Z ; Lê o mais significativo
+000096 9135                      	lpm temp, Z+ ; Lê o menos significativo
+000097 9144                      	lpm temp2, Z ; Lê o mais significativo
                                  
                                  	; Carrega 6 leds na porta B (De 0 - 5)
-00009a 933f                      	push temp
+000098 933f                      	push temp
                                  	; Mascara pra pegar os 6 bits
-00009b 733f                      	andi temp, $3F
-00009c b935                      	out PORTB, temp
-00009d 913f                      	pop temp
+000099 733f                      	andi temp, $3F
+00009a b935                      	out PORTB, temp
+00009b 913f                      	pop temp
                                  
                                  	; Gambiarra pra pegar os dois últimos bits que não foram para PORTB
                                  	; O lsl desloca os bits para << e joga o bit 7 no carry
                                  	; O rol desloca os bits de temp2 para << e joga o carry no bit 0
+00009c 0f33                      	lsl temp
+00009d 1f44                      	rol temp2
 00009e 0f33                      	lsl temp
 00009f 1f44                      	rol temp2
-0000a0 0f33                      	lsl temp
-0000a1 1f44                      	rol temp2
                                  
                                  	; Carrega mais 6 leds na porta C (De 0 - 5)
-0000a2 2f34                      	mov temp, temp2
+0000a0 2f34                      	mov temp, temp2
                                  	; Mascara pra pegar os 6 bits
-0000a3 733f                      	andi temp, $3F
-0000a4 b938                      	out PORTC, temp
+0000a1 733f                      	andi temp, $3F
+0000a2 b938                      	out PORTC, temp
                                  
                                  	; Troca os 4 primeiros bits com os últimos 4 bits
                                  	; Mascara pra pegar os 2 bits
-0000a5 7c40                      	andi temp2, $C0
+0000a3 7c40                      	andi temp2, $C0
                                  	; Pega o que tá na porta D
-0000a6 b13b                      	in temp, PORTD
+0000a4 b13b                      	in temp, PORTD
                                  	; Zera só o que tiver nos bits que queremos
-0000a7 733f                      	andi temp, $3F
+0000a5 733f                      	andi temp, $3F
                                  	; Junta com o que tem no temp 2
-0000a8 2b34                      	or temp, temp2
+0000a6 2b34                      	or temp, temp2
                                  	; Escreve na porta D
-0000a9 b93b                      	out PORTD, temp
+0000a7 b93b                      	out PORTD, temp
                                  	; ----------------------------------------------------------
                                  
-0000aa 9508                      	ret
-                                 ; ============================================================
-                                 
-                                 
-                                 ; ============================================================
-                                 ; Carrega o mapeamento dos timers
-                                 ; ============================================================
-                                 charge_time:
-                                 	; Carregando o top inicial em Z
-0000ab e0f1                      	ldi ZH, high(tops << 1)
-0000ac ebea                      	ldi ZL, low(tops << 1)
-                                 
-                                 	; Artimanha pra multiplicar por 2
-                                 	; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
-                                 	; O caba não deixa fazer << 1 só porque state_count é registrador :(
-0000ad 2f30                      	mov temp, state_count
-0000ae 0f33                      	lsl temp
-                                 
-                                 	; Funciona igual ao carregamento do próximo estado
-0000af 0fe3                      	add ZL, temp
-0000b0 2733                      	clr temp
-0000b1 1ff3                      	adc ZH, temp
-                                 
-0000b2 9145                      	lpm temp2, Z+ ; Lê o byte baixo
-0000b3 9134                      	lpm temp, Z ; Lê o byte alto
-                                 
-                                 	; Carrega o myte mais significativo do top
-0000b4 9330 0089                 	sts OCR1AH, temp
-                                 	; Carrega o byte menos significativo do top
-0000b6 9340 0088                 	sts OCR1AL, temp2
-                                 
-0000b8 9508                      	ret
+0000a8 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1381,18 +1345,18 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_runtimes:
                                  	; Carregando o top inicial em Z
-0000b9 e0f1                      	ldi ZH, high(qtd_runs << 1)
-0000ba ede2                      	ldi ZL, low(qtd_runs << 1)
+0000a9 e0f1                      	ldi ZH, high(qtd_runs << 1)
+0000aa e9ea                      	ldi ZL, low(qtd_runs << 1)
                                  
                                  	; Funciona igual ao carregamento do próximo estado
-0000bb 0fe0                      	add ZL, state_count
-0000bc 2733                      	clr temp
-0000bd 1ff3                      	adc ZH, temp
+0000ab 0fe0                      	add ZL, state_count
+0000ac 2733                      	clr temp
+0000ad 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega o byte menos significativo do top
-0000be 9154                      	lpm count_aux, z
+0000ae 9154                      	lpm count_aux, z
                                  
-0000bf 9508                      	ret
+0000af 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1400,33 +1364,33 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Prepara para mandar a mensagem
                                  ; ============================================================
                                  charge_serial:
-0000c0 e0f5                      	ldi ZH, high(serial_mensage << 1)
-0000c1 e3ee                      	ldi ZL, low(serial_mensage << 1)
+0000b0 e0f5                      	ldi ZH, high(serial_mensage << 1)
+0000b1 e0e6                      	ldi ZL, low(serial_mensage << 1)
                                  	
                                  	; Multiplica por 2
-0000c2 2f30                      	mov temp, state_count
-0000c3 0f33                      	lsl temp
+0000b2 2f30                      	mov temp, state_count
+0000b3 0f33                      	lsl temp
                                  
                                  	; Incrementa certo
-0000c4 0fe3                      	add ZL, temp
-0000c5 2733                      	clr temp
-0000c6 1ff3                      	adc ZH, temp
+0000b4 0fe3                      	add ZL, temp
+0000b5 2733                      	clr temp
+0000b6 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega da memoria
-0000c7 9125                      	lpm serial_low, Z+
-0000c8 9114                      	lpm serial_high, Z
+0000b7 9125                      	lpm serial_low, Z+
+0000b8 9114                      	lpm serial_high, Z
                                  
                                  	; Multiplica por 2, isso será usado como endereço para a mensagem enviada
-0000c9 0f22                      	lsl serial_low
-0000ca 1f11                      	rol serial_high
+0000b9 0f22                      	lsl serial_low
+0000ba 1f11                      	rol serial_high
                                  
                                  	; Liga a interrupção de UDR0
                                  	; Desta forma se UDR0 estiver vazio ele vai interromper pra enviar a mensagem -_-'
-0000cb 9130 00c1                 	lds temp, UCSR0B
-0000cd 6230                      	ori temp, (1 << UDRIE0)
-0000ce 9330 00c1                 	sts UCSR0b, temp
+0000bb 9130 00c1                 	lds temp, UCSR0B
+0000bd 6230                      	ori temp, (1 << UDRIE0)
+0000be 9330 00c1                 	sts UCSR0b, temp
                                  
-0000d0 9508                      	ret
+0000c0 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1472,84 +1436,30 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  mapeamento:
                                  	; Estado 1
-0000d1 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000c1 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 2
-0000d2 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
+0000c2 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
                                  	; Estado 3
                                  	; O de pedestre pisca
-0000d3 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000c3 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 4
-0000d4 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000c4 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 5
-0000d5 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
+0000c5 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
                                  	; Estado 6
-0000d6 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
+0000c6 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
                                  	; Estado 7
-0000d7 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
+0000c7 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 8
-0000d8 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
+0000c8 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
                                  	; Estado 9
-0000d9 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
+0000c9 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
                                  	; Estado 10
-0000da 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000ca 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 11
-0000db 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
+0000cb 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
                                  	; Estado 12
-0000dc 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
-                                 ; ============================================================
-                                 
-                                 
-                                 ; ============================================================
-                                 ; Mapeamento dos tops :)
-                                 ; ============================================================
-                                 tops:
-                                 	; Estado 1
-                                 	; 1 de 1 segundo
-0000dd 3d08                      	.dw 15624
-                                 
-                                 	; Estado 2
-                                 	; 3 de 4 segundos
-0000de f423                      	.dw 62499
-                                 	
-                                 	; Estado 3
-                                 	; 8 de 0.5 segundos
-0000df 1e84                      	.dw 7812
-                                 	
-                                 	; Estado 4
-                                 	; 1 de 2 segundos
-0000e0 7a11                      	.dw 31249
-                                 	
-                                 	; Estado 5
-                                 	; 11 de 2 segundos
-0000e1 7a11                      	.dw 31249
-                                 	
-                                 	; Estado 6
-                                 	; 1 de 4 segundos
-0000e2 f423                      	.dw 62499
-                                 	
-                                 	; Estado 7
-                                 	; 1 de 1 segundo
-0000e3 3d08                      	.dw 15624
-                                 
-                                 	; Estado 8
-                                 	; 15 de 4 segundos
-0000e4 f423                      	.dw 62499
-                                 	
-                                 	; Estado 9
-                                 	; 1 de 4 segundos
-0000e5 f423                      	.dw 62499
-                                 
-                                 	; Estado 10
-                                 	; 1 de 1 segundo
-0000e6 3d08                      	.dw 15624
-                                 
-                                 	; Estado 11
-                                 	; 10 de aproximadamente 2.5 segundos
-0000e7 9896                      	.dw 39062
-                                 
-                                 	; Estado 12
-                                 	; 1 de 4 segundos
-0000e8 f423                      	.dw 62499
+0000cc 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
                                  ; ============================================================
                                  
                                  
@@ -1560,12 +1470,23 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
                                  ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
                                  ; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
-0000e9 0200
-0000ea 0007
-0000eb 000a
-0000ec 0e00
-0000ed 0000
-0000ee 0009                      .db 0, 2, 7, 0, 10, 0, 0, 14, 0, 0, 9, 0
+                                 ; 1s -> vai rodar 2 vezes de 0.5s
+                                 ; 12s -> vai rodar 24 vezes de 0.5s
+                                 ; 4s -> vai rodar 8 vezes de 0.5s
+                                 ; 2s -> vai rodar 4 vezes de 0.5s
+                                 ; 22s -> vai rodar 44 vezes de 0.5s
+                                 ; 4s -> vai rodar 8 vezes de 0.5s
+                                 ; 1s -> vai rodar 2 vezes de 0.5s
+                                 ; 60s -> vai rodar 120 vezes de 0.5s
+                                 ; 4s -> vai rodar 8 vezes de 0.5s
+                                 ; 25s -> vai rodar 60 vezes de 0.5s
+                                 ; 4s -> vai rodar 8 vezes de 0.5s
+0000cd 1701
+0000ce 0307
+0000cf 072b
+0000d0 7701
+0000d1 0107
+0000d2 0731                      .db 1, 23, 7, 3, 43, 7, 1, 119, 7, 1, 49, 7
                                  ; ============================================================
                                  
                                  
@@ -1574,471 +1495,471 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  ; Estado 1
                                  msg1:
-0000ef 3153
+0000d3 3153
+0000d4 203a
+0000d5 6556
+0000d6 6d72
+0000d7 6c65
+0000d8 6f68
+0000d9 0a0d
+0000da 3253
+0000db 203a
+0000dc 6556
+0000dd 6d72
+0000de 6c65
+0000df 6f68
+0000e0 0a0d
+0000e1 3353
+0000e2 203a
+0000e3 6556
+0000e4 6d72
+0000e5 6c65
+0000e6 6f68
+0000e7 0a0d
+0000e8 3453
+0000e9 203a
+0000ea 6556
+0000eb 6d72
+0000ec 6c65
+0000ed 6f68
+0000ee 0a0d
+0000ef 3553
 0000f0 203a
 0000f1 6556
 0000f2 6d72
 0000f3 6c65
 0000f4 6f68
 0000f5 0a0d
-0000f6 3253
-0000f7 203a
-0000f8 6556
-0000f9 6d72
-0000fa 6c65
-0000fb 6f68
-0000fc 0a0d
-0000fd 3353
-0000fe 203a
-0000ff 6556
-000100 6d72
-000101 6c65
-000102 6f68
-000103 0a0d
-000104 3453
-000105 203a
-000106 6556
-000107 6d72
-000108 6c65
-000109 6f68
-00010a 0a0d
-00010b 3553
-00010c 203a
-00010d 6556
-00010e 6d72
-00010f 6c65
-000110 6f68
-000111 0a0d
-000112 0a0d
-000113 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+0000f6 0a0d
+0000f7 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 2
                                  msg2:
-000114 3153
+0000f8 3153
+0000f9 203a
+0000fa 6556
+0000fb 6d72
+0000fc 6c65
+0000fd 6f68
+0000fe 0a0d
+0000ff 3253
+000100 203a
+000101 6556
+000102 6d72
+000103 6c65
+000104 6f68
+000105 0a0d
+000106 3353
+000107 203a
+000108 6556
+000109 6d72
+00010a 6c65
+00010b 6f68
+00010c 0a0d
+00010d 3453
+00010e 203a
+00010f 6556
+000110 6d72
+000111 6c65
+000112 6f68
+000113 0a0d
+000114 3553
 000115 203a
 000116 6556
-000117 6d72
-000118 6c65
-000119 6f68
-00011a 0a0d
-00011b 3253
+000117 6472
+000118 0d65
+000119 0d0a
+00011a 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
+                                 
+                                 ; Estado 3
+                                 msg3:
+00011b 3153
 00011c 203a
 00011d 6556
 00011e 6d72
 00011f 6c65
 000120 6f68
 000121 0a0d
-000122 3353
+000122 3253
 000123 203a
 000124 6556
 000125 6d72
 000126 6c65
 000127 6f68
 000128 0a0d
-000129 3453
+000129 3353
 00012a 203a
 00012b 6556
 00012c 6d72
 00012d 6c65
 00012e 6f68
 00012f 0a0d
-000130 3553
+000130 3453
 000131 203a
 000132 6556
-000133 6472
-000134 0d65
-000135 0d0a
-000136 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
-                                 
-                                 ; Estado 3
-                                 msg3:
-000137 3153
+000133 6d72
+000134 6c65
+000135 6f68
+000136 0a0d
+000137 3553
 000138 203a
 000139 6556
 00013a 6d72
 00013b 6c65
 00013c 6f68
-00013d 0a0d
-00013e 3253
-00013f 203a
-000140 6556
-000141 6d72
-000142 6c65
-000143 6f68
-000144 0a0d
-000145 3353
-000146 203a
-000147 6556
-000148 6d72
-000149 6c65
-00014a 6f68
-00014b 0a0d
-00014c 3453
-00014d 203a
-00014e 6556
-00014f 6d72
-000150 6c65
-000151 6f68
-000152 0a0d
-000153 3553
-000154 203a
-000155 6556
-000156 6d72
-000157 6c65
-000158 6f68
-000159 7020
-00015a 7369
-00015b 6163
-00015c 646e
-00015d 0d6f
-00015e 0d0a
-00015f 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
+00013d 7020
+00013e 7369
+00013f 6163
+000140 646e
+000141 0d6f
+000142 0d0a
+000143 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
                                  
                                  ; Estado 4
                                  msg4:
-000160 3153
+000144 3153
+000145 203a
+000146 6556
+000147 6d72
+000148 6c65
+000149 6f68
+00014a 0a0d
+00014b 3253
+00014c 203a
+00014d 6556
+00014e 6d72
+00014f 6c65
+000150 6f68
+000151 0a0d
+000152 3353
+000153 203a
+000154 6556
+000155 6d72
+000156 6c65
+000157 6f68
+000158 0a0d
+000159 3453
+00015a 203a
+00015b 6556
+00015c 6d72
+00015d 6c65
+00015e 6f68
+00015f 0a0d
+000160 3553
 000161 203a
 000162 6556
 000163 6d72
 000164 6c65
 000165 6f68
 000166 0a0d
-000167 3253
-000168 203a
-000169 6556
-00016a 6d72
-00016b 6c65
-00016c 6f68
-00016d 0a0d
-00016e 3353
-00016f 203a
-000170 6556
-000171 6d72
-000172 6c65
-000173 6f68
-000174 0a0d
-000175 3453
-000176 203a
-000177 6556
-000178 6d72
-000179 6c65
-00017a 6f68
-00017b 0a0d
-00017c 3553
-00017d 203a
-00017e 6556
-00017f 6d72
-000180 6c65
-000181 6f68
-000182 0a0d
-000183 0a0d
-000184 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000167 0a0d
+000168 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 5
                                  msg5:
-000185 3153
-000186 203a
-000187 6556
-000188 6472
-000189 0d65
-00018a 530a
-00018b 3a32
-00018c 5620
-00018d 7265
-00018e 6564
-00018f 0a0d
-000190 3353
-000191 203a
-000192 6556
-000193 6d72
-000194 6c65
-000195 6f68
+000169 3153
+00016a 203a
+00016b 6556
+00016c 6472
+00016d 0d65
+00016e 530a
+00016f 3a32
+000170 5620
+000171 7265
+000172 6564
+000173 0a0d
+000174 3353
+000175 203a
+000176 6556
+000177 6d72
+000178 6c65
+000179 6f68
+00017a 0a0d
+00017b 3453
+00017c 203a
+00017d 6556
+00017e 6d72
+00017f 6c65
+000180 6f68
+000181 0a0d
+000182 3553
+000183 203a
+000184 6556
+000185 6d72
+000186 6c65
+000187 6f68
+000188 0a0d
+000189 0a0d
+00018a 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
+                                 
+                                 ; Estado 6
+                                 msg6:
+00018b 3153
+00018c 203a
+00018d 6556
+00018e 6472
+00018f 0d65
+000190 530a
+000191 3a32
+000192 4120
+000193 616d
+000194 6572
+000195 6f6c
 000196 0a0d
-000197 3453
+000197 3353
 000198 203a
 000199 6556
 00019a 6d72
 00019b 6c65
 00019c 6f68
 00019d 0a0d
-00019e 3553
+00019e 3453
 00019f 203a
 0001a0 6556
 0001a1 6d72
 0001a2 6c65
 0001a3 6f68
 0001a4 0a0d
-0001a5 0a0d
-0001a6 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
-                                 
-                                 ; Estado 6
-                                 msg6:
-0001a7 3153
-0001a8 203a
-0001a9 6556
-0001aa 6472
-0001ab 0d65
-0001ac 530a
-0001ad 3a32
-0001ae 4120
-0001af 616d
-0001b0 6572
-0001b1 6f6c
-0001b2 0a0d
-0001b3 3353
-0001b4 203a
-0001b5 6556
-0001b6 6d72
-0001b7 6c65
-0001b8 6f68
-0001b9 0a0d
-0001ba 3453
-0001bb 203a
-0001bc 6556
-0001bd 6d72
-0001be 6c65
-0001bf 6f68
-0001c0 0a0d
-0001c1 3553
-0001c2 203a
-0001c3 6556
-0001c4 6d72
-0001c5 6c65
-0001c6 6f68
-0001c7 0a0d
-0001c8 0a0d
-0001c9 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+0001a5 3553
+0001a6 203a
+0001a7 6556
+0001a8 6d72
+0001a9 6c65
+0001aa 6f68
+0001ab 0a0d
+0001ac 0a0d
+0001ad 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 7
                                  msg7:
-0001ca 3153
-0001cb 203a
-0001cc 6556
-0001cd 6472
-0001ce 0d65
-0001cf 530a
-0001d0 3a32
-0001d1 5620
-0001d2 7265
-0001d3 656d
-0001d4 686c
-0001d5 0d6f
+0001ae 3153
+0001af 203a
+0001b0 6556
+0001b1 6472
+0001b2 0d65
+0001b3 530a
+0001b4 3a32
+0001b5 5620
+0001b6 7265
+0001b7 656d
+0001b8 686c
+0001b9 0d6f
+0001ba 530a
+0001bb 3a33
+0001bc 5620
+0001bd 7265
+0001be 656d
+0001bf 686c
+0001c0 0d6f
+0001c1 530a
+0001c2 3a34
+0001c3 5620
+0001c4 7265
+0001c5 656d
+0001c6 686c
+0001c7 0d6f
+0001c8 530a
+0001c9 3a35
+0001ca 5620
+0001cb 7265
+0001cc 656d
+0001cd 686c
+0001ce 0d6f
+0001cf 0d0a
+0001d0 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+                                 
+                                 ; Estado 8
+                                 msg8:
+0001d1 3153
+0001d2 203a
+0001d3 6556
+0001d4 6472
+0001d5 0d65
 0001d6 530a
-0001d7 3a33
+0001d7 3a32
 0001d8 5620
 0001d9 7265
 0001da 656d
 0001db 686c
 0001dc 0d6f
 0001dd 530a
-0001de 3a34
+0001de 3a33
 0001df 5620
 0001e0 7265
 0001e1 656d
 0001e2 686c
 0001e3 0d6f
 0001e4 530a
-0001e5 3a35
+0001e5 3a34
 0001e6 5620
 0001e7 7265
-0001e8 656d
-0001e9 686c
-0001ea 0d6f
-0001eb 0d0a
-0001ec 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+0001e8 6564
+0001e9 0a0d
+0001ea 3553
+0001eb 203a
+0001ec 6556
+0001ed 6d72
+0001ee 6c65
+0001ef 6f68
+0001f0 0a0d
+0001f1 0a0d
+0001f2 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
-                                 ; Estado 8
-                                 msg8:
-0001ed 3153
-0001ee 203a
-0001ef 6556
-0001f0 6472
-0001f1 0d65
-0001f2 530a
-0001f3 3a32
-0001f4 5620
-0001f5 7265
-0001f6 656d
-0001f7 686c
+                                 ; Estado 9
+                                 msg9:
+0001f3 3153
+0001f4 203a
+0001f5 6d41
+0001f6 7261
+0001f7 6c65
 0001f8 0d6f
 0001f9 530a
-0001fa 3a33
+0001fa 3a32
 0001fb 5620
 0001fc 7265
 0001fd 656d
 0001fe 686c
 0001ff 0d6f
 000200 530a
-000201 3a34
+000201 3a33
 000202 5620
 000203 7265
-000204 6564
-000205 0a0d
-000206 3553
-000207 203a
-000208 6556
-000209 6d72
-00020a 6c65
-00020b 6f68
-00020c 0a0d
+000204 656d
+000205 686c
+000206 0d6f
+000207 530a
+000208 3a34
+000209 4120
+00020a 616d
+00020b 6572
+00020c 6f6c
 00020d 0a0d
-00020e 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
-                                 
-                                 ; Estado 9
-                                 msg9:
-00020f 3153
-000210 203a
-000211 6d41
-000212 7261
-000213 6c65
-000214 0d6f
-000215 530a
-000216 3a32
-000217 5620
-000218 7265
-000219 656d
-00021a 686c
-00021b 0d6f
-00021c 530a
-00021d 3a33
-00021e 5620
-00021f 7265
-000220 656d
-000221 686c
-000222 0d6f
-000223 530a
-000224 3a34
-000225 4120
-000226 616d
-000227 6572
-000228 6f6c
-000229 0a0d
-00022a 3553
-00022b 203a
-00022c 6556
-00022d 6d72
-00022e 6c65
-00022f 6f68
-000230 0a0d
-000231 0a0d
-000232 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+00020e 3553
+00020f 203a
+000210 6556
+000211 6d72
+000212 6c65
+000213 6f68
+000214 0a0d
+000215 0a0d
+000216 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 10
                                  msg10:
-000233 3153
+000217 3153
+000218 203a
+000219 6556
+00021a 6d72
+00021b 6c65
+00021c 6f68
+00021d 0a0d
+00021e 3253
+00021f 203a
+000220 6556
+000221 6d72
+000222 6c65
+000223 6f68
+000224 0a0d
+000225 3353
+000226 203a
+000227 6556
+000228 6d72
+000229 6c65
+00022a 6f68
+00022b 0a0d
+00022c 3453
+00022d 203a
+00022e 6556
+00022f 6d72
+000230 6c65
+000231 6f68
+000232 0a0d
+000233 3553
 000234 203a
 000235 6556
 000236 6d72
 000237 6c65
 000238 6f68
 000239 0a0d
-00023a 3253
-00023b 203a
-00023c 6556
-00023d 6d72
-00023e 6c65
-00023f 6f68
-000240 0a0d
-000241 3353
-000242 203a
-000243 6556
-000244 6d72
-000245 6c65
-000246 6f68
-000247 0a0d
-000248 3453
-000249 203a
-00024a 6556
-00024b 6d72
-00024c 6c65
-00024d 6f68
-00024e 0a0d
-00024f 3553
-000250 203a
-000251 6556
-000252 6d72
-000253 6c65
-000254 6f68
-000255 0a0d
-000256 0a0d
-000257 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+00023a 0a0d
+00023b 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 11
                                  msg11:
-000258 3153
-000259 203a
-00025a 6556
-00025b 6d72
-00025c 6c65
-00025d 6f68
-00025e 0a0d
-00025f 3253
+00023c 3153
+00023d 203a
+00023e 6556
+00023f 6d72
+000240 6c65
+000241 6f68
+000242 0a0d
+000243 3253
+000244 203a
+000245 6556
+000246 6d72
+000247 6c65
+000248 6f68
+000249 0a0d
+00024a 3353
+00024b 203a
+00024c 6556
+00024d 6472
+00024e 0d65
+00024f 530a
+000250 3a34
+000251 5620
+000252 7265
+000253 656d
+000254 686c
+000255 0d6f
+000256 530a
+000257 3a35
+000258 5620
+000259 7265
+00025a 656d
+00025b 686c
+00025c 0d6f
+00025d 0d0a
+00025e 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+                                 
+                                 ; Estado 12
+                                 msg12:
+00025f 3153
 000260 203a
 000261 6556
 000262 6d72
 000263 6c65
 000264 6f68
 000265 0a0d
-000266 3353
+000266 3253
 000267 203a
 000268 6556
-000269 6472
-00026a 0d65
-00026b 530a
-00026c 3a34
-00026d 5620
-00026e 7265
-00026f 656d
-000270 686c
-000271 0d6f
-000272 530a
-000273 3a35
-000274 5620
-000275 7265
-000276 656d
-000277 686c
-000278 0d6f
-000279 0d0a
-00027a 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
-                                 
-                                 ; Estado 12
-                                 msg12:
-00027b 3153
-00027c 203a
-00027d 6556
-00027e 6d72
-00027f 6c65
-000280 6f68
-000281 0a0d
-000282 3253
-000283 203a
-000284 6556
-000285 6d72
-000286 6c65
-000287 6f68
-000288 0a0d
-000289 3353
-00028a 203a
-00028b 6d41
-00028c 7261
-00028d 6c65
-00028e 0d6f
-00028f 530a
-000290 3a34
-000291 5620
-000292 7265
-000293 656d
-000294 686c
-000295 0d6f
-000296 530a
-000297 3a35
-000298 5620
-000299 7265
-00029a 656d
-00029b 686c
-00029c 0d6f
-00029d 0d0a
-00029e 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+000269 6d72
+00026a 6c65
+00026b 6f68
+00026c 0a0d
+00026d 3353
+00026e 203a
+00026f 6d41
+000270 7261
+000271 6c65
+000272 0d6f
+000273 530a
+000274 3a34
+000275 5620
+000276 7265
+000277 656d
+000278 686c
+000279 0d6f
+00027a 530a
+00027b 3a35
+00027c 5620
+00027d 7265
+00027e 656d
+00027f 686c
+000280 0d6f
+000281 0d0a
+000282 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  ; ============================================================
                                  
                                  
@@ -2046,18 +1967,18 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Mapeamento do serial
                                  ; ============================================================
                                  serial_mensage:
-00029f 00ef                      	.dw msg1
-0002a0 0114                      	.dw msg2
-0002a1 0137                      	.dw msg3
-0002a2 0160                      	.dw msg4
-0002a3 0185                      	.dw msg5
-0002a4 01a7                      	.dw msg6
-0002a5 01ca                      	.dw msg7
-0002a6 01ed                      	.dw msg8
-0002a7 020f                      	.dw msg9
-0002a8 0233                      	.dw msg10
-0002a9 0258                      	.dw msg11
-0002aa 027b                      	.dw msg12
+000283 00d3                      	.dw msg1
+000284 00f8                      	.dw msg2
+000285 011b                      	.dw msg3
+000286 0144                      	.dw msg4
+000287 0169                      	.dw msg5
+000288 018b                      	.dw msg6
+000289 01ae                      	.dw msg7
+00028a 01d1                      	.dw msg8
+00028b 01f3                      	.dw msg9
+00028c 0217                      	.dw msg10
+00028d 023c                      	.dw msg11
+00028e 025f                      	.dw msg12
 
 
 RESOURCE USE INFORMATION
@@ -2075,39 +1996,39 @@ counted separately from r26..r31 here.
 .dseg memory usage only counts static data declared with .byte
 
 "ATmega328P" register use summary:
-x  :   0 y  :   0 z  :   8 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
+x  :   0 y  :   0 z  :   6 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
 r5 :   0 r6 :   0 r7 :   0 r8 :   0 r9 :   0 r10:   0 r11:   0 r12:   0 
-r13:   0 r14:   0 r15:   0 r16:   9 r17:   4 r18:   4 r19:  86 r20:  10 
+r13:   0 r14:   0 r15:   0 r16:   8 r17:   4 r18:   4 r19:  79 r20:   8 
 r21:   3 r22:   0 r23:   0 r24:   0 r25:   0 r26:   0 r27:   0 r28:   0 
-r29:   0 r30:  14 r31:  14 
+r29:   0 r30:  12 r31:  12 
 Registers used: 9 out of 35 (25.7%)
 
 "ATmega328P" instruction use summary:
-.lds  :   0 .sts  :   0 adc   :   4 add   :   4 adiw  :   0 and   :   0 
+.lds  :   0 .sts  :   0 adc   :   3 add   :   3 adiw  :   0 and   :   0 
 andi  :   5 asr   :   0 bclr  :   0 bld   :   0 brbc  :   0 brbs  :   0 
 brcc  :   0 brcs  :   0 break :   0 breq  :   2 brge  :   0 brhc  :   0 
 brhs  :   0 brid  :   0 brie  :   0 brlo  :   1 brlt  :   0 brmi  :   0 
 brne  :   1 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 
 brvs  :   0 bset  :   0 bst   :   0 call  :   0 cbi   :   0 cbr   :   0 
-clc   :   0 clh   :   0 cli   :   0 cln   :   0 clr   :   7 cls   :   0 
+clc   :   0 clh   :   0 cli   :   0 cln   :   0 clr   :   6 cls   :   0 
 clt   :   0 clv   :   0 clz   :   0 com   :   0 cp    :   0 cpc   :   0 
 cpi   :   3 cpse  :   0 dec   :   1 eor   :   0 fmul  :   0 fmuls :   0 
 fmulsu:   0 icall :   0 ijmp  :   0 in    :   3 inc   :   1 jmp   :   2 
-ld    :   0 ldd   :   0 ldi   :  21 lds   :   3 lpm   :  12 lsl   :   6 
-lsr   :   0 mov   :   8 movw  :   0 mul   :   0 muls  :   0 mulsu :   0 
+ld    :   0 ldd   :   0 ldi   :  19 lds   :   3 lpm   :   9 lsl   :   5 
+lsr   :   0 mov   :   7 movw  :   0 mul   :   0 muls  :   0 mulsu :   0 
 neg   :   0 nop   :   0 or    :   1 ori   :   1 out   :  10 pop   :  10 
-push  :  10 rcall :   8 ret   :   4 reti  :   2 rjmp  :   4 rol   :   3 
+push  :  10 rcall :   6 ret   :   3 reti  :   2 rjmp  :   4 rol   :   3 
 ror   :   0 sbc   :   0 sbci  :   0 sbi   :   1 sbic  :   0 sbis  :   0 
 sbiw  :   0 sbr   :   1 sbrc  :   0 sbrs  :   0 sec   :   0 seh   :   0 
 sei   :   1 sen   :   0 ser   :   0 ses   :   0 set   :   0 sev   :   0 
-sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :  16 
+sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :  14 
 sub   :   0 subi  :   0 swap  :   0 tst   :   1 wdr   :   0 
 Instructions used: 32 out of 113 (28.3%)
 
 "ATmega328P" memory use summary [bytes]:
 Segment   Begin    End      Code   Data   Used    Size   Use%
 ---------------------------------------------------------------
-[.cseg] 0x000000 0x000556    348    948   1296   32768   4.0%
+[.cseg] 0x000000 0x00051e    316    924   1240   32768   3.8%
 [.dseg] 0x000100 0x000100      0      0      0    2048   0.0%
 [.eseg] 0x000000 0x000000      0      0      0    1024   0.0%
 
