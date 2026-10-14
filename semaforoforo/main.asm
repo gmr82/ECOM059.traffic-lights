@@ -100,8 +100,8 @@ reset:
 	ldi temp, $3F
 	out DDRC, temp
 
-	; Configura como saída de 2 - 7 para a porta D
-	ldi temp, $FC
+	; Configura como saída os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
+	ldi temp, $FD
 	out DDRD, temp
 	; ----------------------------------------------------------
 
@@ -237,7 +237,7 @@ OCI1A_Interrupt:
 	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
 	; Se estava 0 (LED apagado), vira 1 (LED aceso)
 	; Se estava 1 (LED aceso), vira 0 (LED apagado)
-	sbi PIND, 3
+	sbi PIND, 7
 
 	rjmp exit
 
@@ -343,13 +343,12 @@ charge_leds:
 	out PORTC, temp
 
 	; Troca os 4 primeiros bits com os últimos 4 bits
-	swap temp2
 	; Mascara pra pegar os 2 bits
-	andi temp2, $0C
+	andi temp2, $C0
 	; Pega o que tá na porta D
 	in temp, PORTD
 	; Zera só o que tiver nos bits que queremos
-	andi temp, $F3
+	andi temp, $3F
 	; Junta com o que tem no temp 2
 	or temp, temp2
 	; Escreve na porta D

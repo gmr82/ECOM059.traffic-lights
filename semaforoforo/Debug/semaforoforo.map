@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Mon Oct 12 21:27:14 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 10:11:32 2026
 
 
 EQU  SIGNATURE_000 0000001e
@@ -709,20 +709,20 @@ EQU  baundrate    00002580
 EQU  UBRRvalue    00000067
 EQU  prescale     00000005
 EQU  WGM          00000004
-CSEG charge_serial 000000c1
+CSEG charge_serial 000000c0
 CSEG charge_leds  00000091
-CSEG charge_runtimes 000000ba
-CSEG charge_time  000000ac
+CSEG charge_runtimes 000000b9
+CSEG charge_time  000000ab
 CSEG loop         0000004e
 CSEG fim_serial   0000005f
 CSEG saida_serial 00000064
 CSEG proximo_estado 00000077
 CSEG exit         0000008a
 CSEG estado_valido 0000007b
-CSEG mapeamento   000000d2
-CSEG tops         000000de
-CSEG qtd_runs     000000ea
-CSEG serial_mensage 000002a0
+CSEG mapeamento   000000d1
+CSEG tops         000000dd
+CSEG qtd_runs     000000e9
+CSEG serial_mensage 0000029f
 EQU  S1_G         00000001
 EQU  S1_Y         00000002
 EQU  S1_R         00000004
@@ -737,15 +737,15 @@ EQU  S4_Y         00000400
 EQU  S4_R         00000800
 EQU  S5_G         00001000
 EQU  S5_R         00002000
-CSEG msg1         000000f0
-CSEG msg2         00000115
-CSEG msg3         00000138
-CSEG msg4         00000161
-CSEG msg5         00000186
-CSEG msg6         000001a8
-CSEG msg7         000001cb
-CSEG msg8         000001ee
-CSEG msg9         00000210
-CSEG msg10        00000234
-CSEG msg11        00000259
-CSEG msg12        0000027c
+CSEG msg1         000000ef
+CSEG msg2         00000114
+CSEG msg3         00000137
+CSEG msg4         00000160
+CSEG msg5         00000185
+CSEG msg6         000001a7
+CSEG msg7         000001ca
+CSEG msg8         000001ed
+CSEG msg9         0000020f
+CSEG msg10        00000233
+CSEG msg11        00000258
+CSEG msg12        0000027b

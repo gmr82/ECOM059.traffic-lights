@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Mon Oct 12 21:27:14 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 10:11:32 2026
 
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
@@ -1073,7 +1073,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 000035 e038                      	ldi temp, (1 << TXEN0)
 000036 9330 00c1                 	sts UCSR0B, temp
                                  
-000038 d088                      	rcall charge_serial
+000038 d087                      	rcall charge_serial
                                  	; ----------------------------------------------------------
                                  
                                  
@@ -1086,8 +1086,8 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 00003b e33f                      	ldi temp, $3F
 00003c b937                      	out DDRC, temp
                                  
-                                 	; Configura como saída de 2 - 7 para a porta D
-00003d ef3c                      	ldi temp, $FC
+                                 	; Configura como saída os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
+00003d ef3d                      	ldi temp, $FD
 00003e b93a                      	out DDRD, temp
                                  	; ----------------------------------------------------------
                                  
@@ -1098,13 +1098,13 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  
                                  	; ---- Carregamento inicial da qtd de vezes que vai rodar a miséria ----
-000040 d079                      	rcall charge_runtimes
+000040 d078                      	rcall charge_runtimes
                                  	; ----------------------------------------------------------
                                  
                                  
                                  	; ---- Configura inicialmente o timer ----
                                  	; Carregando o top inicial em Z
-000041 d06a                      	rcall charge_time
+000041 d069                      	rcall charge_time
                                  
                                  	;Habilita as interrupções do timer
                                  	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
@@ -1223,7 +1223,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
                                  	; Se estava 0 (LED apagado), vira 1 (LED aceso)
                                  	; Se estava 1 (LED aceso), vira 0 (LED apagado)
-000075 9a4b                      	sbi PIND, 3
+000075 9a4f                      	sbi PIND, 7
                                  
 000076 c013                      	rjmp exit
                                  
@@ -1247,7 +1247,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 00007b d015                      		rcall charge_leds
                                  
                                  		; Prepara a ablação do caba
-00007c d044                      		rcall charge_serial
+00007c d043                      		rcall charge_serial
                                  		
                                  		; ---- Carrega o tempo ----
                                  		; Para o timer a pauladas
@@ -1262,7 +1262,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 000083 9330 0084                 		sts TCNT1L, temp
                                  		
                                  		; Carrega o tempo
-000085 d026                      		rcall charge_time
+000085 d025                      		rcall charge_time
                                  
                                  		; Ressucita o poço de vacilo na base da bicuda
 000086 e03d                      		ldi temp, ((WGM>>2)<<WGM12)|(prescale<<CS10)
@@ -1270,7 +1270,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  		; ----------------------------------------------------------
                                  
                                  		; Carregamento inicial da qtd de vezes que vai rodar a miséria
-000089 d030                      		rcall charge_runtimes
+000089 d02f                      		rcall charge_runtimes
                                  
                                  	; Saida
                                  	; Despusha o SREG
@@ -1292,7 +1292,7 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  charge_leds:
                                  	; Configurando z com o mapeamento inicial
 000091 e0f1                      	ldi ZH, high(mapeamento << 1)
-000092 eae4                      	ldi ZL, low(mapeamento << 1)
+000092 eae2                      	ldi ZL, low(mapeamento << 1)
                                  
                                  	; Multiplica o state_count por 2
 000093 2f30                      	mov temp, state_count
@@ -1329,20 +1329,19 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 0000a4 b938                      	out PORTC, temp
                                  
                                  	; Troca os 4 primeiros bits com os últimos 4 bits
-0000a5 9542                      	swap temp2
                                  	; Mascara pra pegar os 2 bits
-0000a6 704c                      	andi temp2, $0C
+0000a5 7c40                      	andi temp2, $C0
                                  	; Pega o que tá na porta D
-0000a7 b13b                      	in temp, PORTD
+0000a6 b13b                      	in temp, PORTD
                                  	; Zera só o que tiver nos bits que queremos
-0000a8 7f33                      	andi temp, $F3
+0000a7 733f                      	andi temp, $3F
                                  	; Junta com o que tem no temp 2
-0000a9 2b34                      	or temp, temp2
+0000a8 2b34                      	or temp, temp2
                                  	; Escreve na porta D
-0000aa b93b                      	out PORTD, temp
+0000a9 b93b                      	out PORTD, temp
                                  	; ----------------------------------------------------------
                                  
-0000ab 9508                      	ret
+0000aa 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1351,29 +1350,29 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_time:
                                  	; Carregando o top inicial em Z
-0000ac e0f1                      	ldi ZH, high(tops << 1)
-0000ad ebec                      	ldi ZL, low(tops << 1)
+0000ab e0f1                      	ldi ZH, high(tops << 1)
+0000ac ebea                      	ldi ZL, low(tops << 1)
                                  
                                  	; Artimanha pra multiplicar por 2
                                  	; Precisa dessa miséria pra ele pegar a próxima palavra certinha do "vetor" tops
                                  	; O caba não deixa fazer << 1 só porque state_count é registrador :(
-0000ae 2f30                      	mov temp, state_count
-0000af 0f33                      	lsl temp
+0000ad 2f30                      	mov temp, state_count
+0000ae 0f33                      	lsl temp
                                  
                                  	; Funciona igual ao carregamento do próximo estado
-0000b0 0fe3                      	add ZL, temp
-0000b1 2733                      	clr temp
-0000b2 1ff3                      	adc ZH, temp
+0000af 0fe3                      	add ZL, temp
+0000b0 2733                      	clr temp
+0000b1 1ff3                      	adc ZH, temp
                                  
-0000b3 9145                      	lpm temp2, Z+ ; Lê o byte baixo
-0000b4 9134                      	lpm temp, Z ; Lê o byte alto
+0000b2 9145                      	lpm temp2, Z+ ; Lê o byte baixo
+0000b3 9134                      	lpm temp, Z ; Lê o byte alto
                                  
                                  	; Carrega o myte mais significativo do top
-0000b5 9330 0089                 	sts OCR1AH, temp
+0000b4 9330 0089                 	sts OCR1AH, temp
                                  	; Carrega o byte menos significativo do top
-0000b7 9340 0088                 	sts OCR1AL, temp2
+0000b6 9340 0088                 	sts OCR1AL, temp2
                                  
-0000b9 9508                      	ret
+0000b8 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1382,18 +1381,18 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  charge_runtimes:
                                  	; Carregando o top inicial em Z
-0000ba e0f1                      	ldi ZH, high(qtd_runs << 1)
-0000bb ede4                      	ldi ZL, low(qtd_runs << 1)
+0000b9 e0f1                      	ldi ZH, high(qtd_runs << 1)
+0000ba ede2                      	ldi ZL, low(qtd_runs << 1)
                                  
                                  	; Funciona igual ao carregamento do próximo estado
-0000bc 0fe0                      	add ZL, state_count
-0000bd 2733                      	clr temp
-0000be 1ff3                      	adc ZH, temp
+0000bb 0fe0                      	add ZL, state_count
+0000bc 2733                      	clr temp
+0000bd 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega o byte menos significativo do top
-0000bf 9154                      	lpm count_aux, z
+0000be 9154                      	lpm count_aux, z
                                  
-0000c0 9508                      	ret
+0000bf 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1401,33 +1400,33 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Prepara para mandar a mensagem
                                  ; ============================================================
                                  charge_serial:
-0000c1 e0f5                      	ldi ZH, high(serial_mensage << 1)
-0000c2 e4e0                      	ldi ZL, low(serial_mensage << 1)
+0000c0 e0f5                      	ldi ZH, high(serial_mensage << 1)
+0000c1 e3ee                      	ldi ZL, low(serial_mensage << 1)
                                  	
                                  	; Multiplica por 2
-0000c3 2f30                      	mov temp, state_count
-0000c4 0f33                      	lsl temp
+0000c2 2f30                      	mov temp, state_count
+0000c3 0f33                      	lsl temp
                                  
                                  	; Incrementa certo
-0000c5 0fe3                      	add ZL, temp
-0000c6 2733                      	clr temp
-0000c7 1ff3                      	adc ZH, temp
+0000c4 0fe3                      	add ZL, temp
+0000c5 2733                      	clr temp
+0000c6 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega da memoria
-0000c8 9125                      	lpm serial_low, Z+
-0000c9 9114                      	lpm serial_high, Z
+0000c7 9125                      	lpm serial_low, Z+
+0000c8 9114                      	lpm serial_high, Z
                                  
                                  	; Multiplica por 2, isso será usado como endereço para a mensagem enviada
-0000ca 0f22                      	lsl serial_low
-0000cb 1f11                      	rol serial_high
+0000c9 0f22                      	lsl serial_low
+0000ca 1f11                      	rol serial_high
                                  
                                  	; Liga a interrupção de UDR0
                                  	; Desta forma se UDR0 estiver vazio ele vai interromper pra enviar a mensagem -_-'
-0000cc 9130 00c1                 	lds temp, UCSR0B
-0000ce 6230                      	ori temp, (1 << UDRIE0)
-0000cf 9330 00c1                 	sts UCSR0b, temp
+0000cb 9130 00c1                 	lds temp, UCSR0B
+0000cd 6230                      	ori temp, (1 << UDRIE0)
+0000ce 9330 00c1                 	sts UCSR0b, temp
                                  
-0000d1 9508                      	ret
+0000d0 9508                      	ret
                                  ; ============================================================
                                  
                                  
@@ -1473,30 +1472,30 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  
                                  mapeamento:
                                  	; Estado 1
-0000d2 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000d1 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 2
-0000d3 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
+0000d2 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
                                  	; Estado 3
                                  	; O de pedestre pisca
-0000d4 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000d3 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 4
-0000d5 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000d4 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 5
-0000d6 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
+0000d5 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
                                  	; Estado 6
-0000d7 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
+0000d6 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
                                  	; Estado 7
-0000d8 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
+0000d7 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 8
-0000d9 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
+0000d8 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
                                  	; Estado 9
-0000da 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
+0000d9 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
                                  	; Estado 10
-0000db 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+0000da 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 11
-0000dc 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
+0000db 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
                                  	; Estado 12
-0000dd 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
+0000dc 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
                                  ; ============================================================
                                  
                                  
@@ -1506,51 +1505,51 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  tops:
                                  	; Estado 1
                                  	; 1 de 1 segundo
-0000de 3d08                      	.dw 15624
+0000dd 3d08                      	.dw 15624
                                  
                                  	; Estado 2
                                  	; 3 de 4 segundos
-0000df f423                      	.dw 62499
+0000de f423                      	.dw 62499
                                  	
                                  	; Estado 3
                                  	; 8 de 0.5 segundos
-0000e0 1e84                      	.dw 7812
+0000df 1e84                      	.dw 7812
                                  	
                                  	; Estado 4
                                  	; 1 de 2 segundos
-0000e1 7a11                      	.dw 31249
+0000e0 7a11                      	.dw 31249
                                  	
                                  	; Estado 5
                                  	; 11 de 2 segundos
-0000e2 7a11                      	.dw 31249
+0000e1 7a11                      	.dw 31249
                                  	
                                  	; Estado 6
                                  	; 1 de 4 segundos
-0000e3 f423                      	.dw 62499
+0000e2 f423                      	.dw 62499
                                  	
                                  	; Estado 7
                                  	; 1 de 1 segundo
-0000e4 3d08                      	.dw 15624
+0000e3 3d08                      	.dw 15624
                                  
                                  	; Estado 8
                                  	; 15 de 4 segundos
-0000e5 f423                      	.dw 62499
+0000e4 f423                      	.dw 62499
                                  	
                                  	; Estado 9
                                  	; 1 de 4 segundos
-0000e6 f423                      	.dw 62499
+0000e5 f423                      	.dw 62499
                                  
                                  	; Estado 10
                                  	; 1 de 1 segundo
-0000e7 3d08                      	.dw 15624
+0000e6 3d08                      	.dw 15624
                                  
                                  	; Estado 11
                                  	; 10 de aproximadamente 2.5 segundos
-0000e8 9896                      	.dw 39062
+0000e7 9896                      	.dw 39062
                                  
                                  	; Estado 12
                                  	; 1 de 4 segundos
-0000e9 f423                      	.dw 62499
+0000e8 f423                      	.dw 62499
                                  ; ============================================================
                                  
                                  
@@ -1561,12 +1560,12 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
                                  ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
                                  ; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
-0000ea 0200
-0000eb 0007
-0000ec 000a
-0000ed 0e00
-0000ee 0000
-0000ef 0009                      .db 0, 2, 7, 0, 10, 0, 0, 14, 0, 0, 9, 0
+0000e9 0200
+0000ea 0007
+0000eb 000a
+0000ec 0e00
+0000ed 0000
+0000ee 0009                      .db 0, 2, 7, 0, 10, 0, 0, 14, 0, 0, 9, 0
                                  ; ============================================================
                                  
                                  
@@ -1575,471 +1574,471 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; ============================================================
                                  ; Estado 1
                                  msg1:
-0000f0 3153
-0000f1 203a
-0000f2 6556
-0000f3 6d72
-0000f4 6c65
-0000f5 6f68
-0000f6 0a0d
-0000f7 3253
-0000f8 203a
-0000f9 6556
-0000fa 6d72
-0000fb 6c65
-0000fc 6f68
-0000fd 0a0d
-0000fe 3353
-0000ff 203a
-000100 6556
-000101 6d72
-000102 6c65
-000103 6f68
-000104 0a0d
-000105 3453
-000106 203a
-000107 6556
-000108 6d72
-000109 6c65
-00010a 6f68
-00010b 0a0d
-00010c 3553
-00010d 203a
-00010e 6556
-00010f 6d72
-000110 6c65
-000111 6f68
+0000ef 3153
+0000f0 203a
+0000f1 6556
+0000f2 6d72
+0000f3 6c65
+0000f4 6f68
+0000f5 0a0d
+0000f6 3253
+0000f7 203a
+0000f8 6556
+0000f9 6d72
+0000fa 6c65
+0000fb 6f68
+0000fc 0a0d
+0000fd 3353
+0000fe 203a
+0000ff 6556
+000100 6d72
+000101 6c65
+000102 6f68
+000103 0a0d
+000104 3453
+000105 203a
+000106 6556
+000107 6d72
+000108 6c65
+000109 6f68
+00010a 0a0d
+00010b 3553
+00010c 203a
+00010d 6556
+00010e 6d72
+00010f 6c65
+000110 6f68
+000111 0a0d
 000112 0a0d
-000113 0a0d
-000114 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000113 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 2
                                  msg2:
-000115 3153
-000116 203a
-000117 6556
-000118 6d72
-000119 6c65
-00011a 6f68
-00011b 0a0d
-00011c 3253
-00011d 203a
-00011e 6556
-00011f 6d72
-000120 6c65
-000121 6f68
-000122 0a0d
-000123 3353
-000124 203a
-000125 6556
-000126 6d72
-000127 6c65
-000128 6f68
-000129 0a0d
-00012a 3453
-00012b 203a
-00012c 6556
-00012d 6d72
-00012e 6c65
-00012f 6f68
-000130 0a0d
-000131 3553
-000132 203a
-000133 6556
-000134 6472
-000135 0d65
-000136 0d0a
-000137 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
+000114 3153
+000115 203a
+000116 6556
+000117 6d72
+000118 6c65
+000119 6f68
+00011a 0a0d
+00011b 3253
+00011c 203a
+00011d 6556
+00011e 6d72
+00011f 6c65
+000120 6f68
+000121 0a0d
+000122 3353
+000123 203a
+000124 6556
+000125 6d72
+000126 6c65
+000127 6f68
+000128 0a0d
+000129 3453
+00012a 203a
+00012b 6556
+00012c 6d72
+00012d 6c65
+00012e 6f68
+00012f 0a0d
+000130 3553
+000131 203a
+000132 6556
+000133 6472
+000134 0d65
+000135 0d0a
+000136 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
                                  
                                  ; Estado 3
                                  msg3:
-000138 3153
-000139 203a
-00013a 6556
-00013b 6d72
-00013c 6c65
-00013d 6f68
-00013e 0a0d
-00013f 3253
-000140 203a
-000141 6556
-000142 6d72
-000143 6c65
-000144 6f68
-000145 0a0d
-000146 3353
-000147 203a
-000148 6556
-000149 6d72
-00014a 6c65
-00014b 6f68
-00014c 0a0d
-00014d 3453
-00014e 203a
-00014f 6556
-000150 6d72
-000151 6c65
-000152 6f68
-000153 0a0d
-000154 3553
-000155 203a
-000156 6556
-000157 6d72
-000158 6c65
-000159 6f68
-00015a 7020
-00015b 7369
-00015c 6163
-00015d 646e
-00015e 0d6f
-00015f 0d0a
-000160 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
+000137 3153
+000138 203a
+000139 6556
+00013a 6d72
+00013b 6c65
+00013c 6f68
+00013d 0a0d
+00013e 3253
+00013f 203a
+000140 6556
+000141 6d72
+000142 6c65
+000143 6f68
+000144 0a0d
+000145 3353
+000146 203a
+000147 6556
+000148 6d72
+000149 6c65
+00014a 6f68
+00014b 0a0d
+00014c 3453
+00014d 203a
+00014e 6556
+00014f 6d72
+000150 6c65
+000151 6f68
+000152 0a0d
+000153 3553
+000154 203a
+000155 6556
+000156 6d72
+000157 6c65
+000158 6f68
+000159 7020
+00015a 7369
+00015b 6163
+00015c 646e
+00015d 0d6f
+00015e 0d0a
+00015f 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
                                  
                                  ; Estado 4
                                  msg4:
-000161 3153
-000162 203a
-000163 6556
-000164 6d72
-000165 6c65
-000166 6f68
-000167 0a0d
-000168 3253
-000169 203a
-00016a 6556
-00016b 6d72
-00016c 6c65
-00016d 6f68
-00016e 0a0d
-00016f 3353
-000170 203a
-000171 6556
-000172 6d72
-000173 6c65
-000174 6f68
-000175 0a0d
-000176 3453
-000177 203a
-000178 6556
-000179 6d72
-00017a 6c65
-00017b 6f68
-00017c 0a0d
-00017d 3553
-00017e 203a
-00017f 6556
-000180 6d72
-000181 6c65
-000182 6f68
+000160 3153
+000161 203a
+000162 6556
+000163 6d72
+000164 6c65
+000165 6f68
+000166 0a0d
+000167 3253
+000168 203a
+000169 6556
+00016a 6d72
+00016b 6c65
+00016c 6f68
+00016d 0a0d
+00016e 3353
+00016f 203a
+000170 6556
+000171 6d72
+000172 6c65
+000173 6f68
+000174 0a0d
+000175 3453
+000176 203a
+000177 6556
+000178 6d72
+000179 6c65
+00017a 6f68
+00017b 0a0d
+00017c 3553
+00017d 203a
+00017e 6556
+00017f 6d72
+000180 6c65
+000181 6f68
+000182 0a0d
 000183 0a0d
-000184 0a0d
-000185 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000184 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 5
                                  msg5:
-000186 3153
-000187 203a
-000188 6556
-000189 6472
-00018a 0d65
-00018b 530a
-00018c 3a32
-00018d 5620
-00018e 7265
-00018f 6564
-000190 0a0d
-000191 3353
-000192 203a
-000193 6556
-000194 6d72
-000195 6c65
-000196 6f68
-000197 0a0d
-000198 3453
-000199 203a
-00019a 6556
-00019b 6d72
-00019c 6c65
-00019d 6f68
-00019e 0a0d
-00019f 3553
-0001a0 203a
-0001a1 6556
-0001a2 6d72
-0001a3 6c65
-0001a4 6f68
+000185 3153
+000186 203a
+000187 6556
+000188 6472
+000189 0d65
+00018a 530a
+00018b 3a32
+00018c 5620
+00018d 7265
+00018e 6564
+00018f 0a0d
+000190 3353
+000191 203a
+000192 6556
+000193 6d72
+000194 6c65
+000195 6f68
+000196 0a0d
+000197 3453
+000198 203a
+000199 6556
+00019a 6d72
+00019b 6c65
+00019c 6f68
+00019d 0a0d
+00019e 3553
+00019f 203a
+0001a0 6556
+0001a1 6d72
+0001a2 6c65
+0001a3 6f68
+0001a4 0a0d
 0001a5 0a0d
-0001a6 0a0d
-0001a7 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
+0001a6 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 6
                                  msg6:
-0001a8 3153
-0001a9 203a
-0001aa 6556
-0001ab 6472
-0001ac 0d65
-0001ad 530a
-0001ae 3a32
-0001af 4120
-0001b0 616d
-0001b1 6572
-0001b2 6f6c
-0001b3 0a0d
-0001b4 3353
-0001b5 203a
-0001b6 6556
-0001b7 6d72
-0001b8 6c65
-0001b9 6f68
-0001ba 0a0d
-0001bb 3453
-0001bc 203a
-0001bd 6556
-0001be 6d72
-0001bf 6c65
-0001c0 6f68
-0001c1 0a0d
-0001c2 3553
-0001c3 203a
-0001c4 6556
-0001c5 6d72
-0001c6 6c65
-0001c7 6f68
+0001a7 3153
+0001a8 203a
+0001a9 6556
+0001aa 6472
+0001ab 0d65
+0001ac 530a
+0001ad 3a32
+0001ae 4120
+0001af 616d
+0001b0 6572
+0001b1 6f6c
+0001b2 0a0d
+0001b3 3353
+0001b4 203a
+0001b5 6556
+0001b6 6d72
+0001b7 6c65
+0001b8 6f68
+0001b9 0a0d
+0001ba 3453
+0001bb 203a
+0001bc 6556
+0001bd 6d72
+0001be 6c65
+0001bf 6f68
+0001c0 0a0d
+0001c1 3553
+0001c2 203a
+0001c3 6556
+0001c4 6d72
+0001c5 6c65
+0001c6 6f68
+0001c7 0a0d
 0001c8 0a0d
-0001c9 0a0d
-0001ca 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+0001c9 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 7
                                  msg7:
-0001cb 3153
-0001cc 203a
-0001cd 6556
-0001ce 6472
-0001cf 0d65
-0001d0 530a
-0001d1 3a32
-0001d2 5620
-0001d3 7265
-0001d4 656d
-0001d5 686c
-0001d6 0d6f
-0001d7 530a
-0001d8 3a33
-0001d9 5620
-0001da 7265
-0001db 656d
-0001dc 686c
-0001dd 0d6f
-0001de 530a
-0001df 3a34
-0001e0 5620
-0001e1 7265
-0001e2 656d
-0001e3 686c
-0001e4 0d6f
-0001e5 530a
-0001e6 3a35
-0001e7 5620
-0001e8 7265
-0001e9 656d
-0001ea 686c
-0001eb 0d6f
-0001ec 0d0a
-0001ed 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+0001ca 3153
+0001cb 203a
+0001cc 6556
+0001cd 6472
+0001ce 0d65
+0001cf 530a
+0001d0 3a32
+0001d1 5620
+0001d2 7265
+0001d3 656d
+0001d4 686c
+0001d5 0d6f
+0001d6 530a
+0001d7 3a33
+0001d8 5620
+0001d9 7265
+0001da 656d
+0001db 686c
+0001dc 0d6f
+0001dd 530a
+0001de 3a34
+0001df 5620
+0001e0 7265
+0001e1 656d
+0001e2 686c
+0001e3 0d6f
+0001e4 530a
+0001e5 3a35
+0001e6 5620
+0001e7 7265
+0001e8 656d
+0001e9 686c
+0001ea 0d6f
+0001eb 0d0a
+0001ec 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  
                                  ; Estado 8
                                  msg8:
-0001ee 3153
-0001ef 203a
-0001f0 6556
-0001f1 6472
-0001f2 0d65
-0001f3 530a
-0001f4 3a32
-0001f5 5620
-0001f6 7265
-0001f7 656d
-0001f8 686c
-0001f9 0d6f
-0001fa 530a
-0001fb 3a33
-0001fc 5620
-0001fd 7265
-0001fe 656d
-0001ff 686c
-000200 0d6f
-000201 530a
-000202 3a34
-000203 5620
-000204 7265
-000205 6564
-000206 0a0d
-000207 3553
-000208 203a
-000209 6556
-00020a 6d72
-00020b 6c65
-00020c 6f68
+0001ed 3153
+0001ee 203a
+0001ef 6556
+0001f0 6472
+0001f1 0d65
+0001f2 530a
+0001f3 3a32
+0001f4 5620
+0001f5 7265
+0001f6 656d
+0001f7 686c
+0001f8 0d6f
+0001f9 530a
+0001fa 3a33
+0001fb 5620
+0001fc 7265
+0001fd 656d
+0001fe 686c
+0001ff 0d6f
+000200 530a
+000201 3a34
+000202 5620
+000203 7265
+000204 6564
+000205 0a0d
+000206 3553
+000207 203a
+000208 6556
+000209 6d72
+00020a 6c65
+00020b 6f68
+00020c 0a0d
 00020d 0a0d
-00020e 0a0d
-00020f 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+00020e 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 9
                                  msg9:
-000210 3153
-000211 203a
-000212 6d41
-000213 7261
-000214 6c65
-000215 0d6f
-000216 530a
-000217 3a32
-000218 5620
-000219 7265
-00021a 656d
-00021b 686c
-00021c 0d6f
-00021d 530a
-00021e 3a33
-00021f 5620
-000220 7265
-000221 656d
-000222 686c
-000223 0d6f
-000224 530a
-000225 3a34
-000226 4120
-000227 616d
-000228 6572
-000229 6f6c
-00022a 0a0d
-00022b 3553
-00022c 203a
-00022d 6556
-00022e 6d72
-00022f 6c65
-000230 6f68
+00020f 3153
+000210 203a
+000211 6d41
+000212 7261
+000213 6c65
+000214 0d6f
+000215 530a
+000216 3a32
+000217 5620
+000218 7265
+000219 656d
+00021a 686c
+00021b 0d6f
+00021c 530a
+00021d 3a33
+00021e 5620
+00021f 7265
+000220 656d
+000221 686c
+000222 0d6f
+000223 530a
+000224 3a34
+000225 4120
+000226 616d
+000227 6572
+000228 6f6c
+000229 0a0d
+00022a 3553
+00022b 203a
+00022c 6556
+00022d 6d72
+00022e 6c65
+00022f 6f68
+000230 0a0d
 000231 0a0d
-000232 0a0d
-000233 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000232 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 10
                                  msg10:
-000234 3153
-000235 203a
-000236 6556
-000237 6d72
-000238 6c65
-000239 6f68
-00023a 0a0d
-00023b 3253
-00023c 203a
-00023d 6556
-00023e 6d72
-00023f 6c65
-000240 6f68
-000241 0a0d
-000242 3353
-000243 203a
-000244 6556
-000245 6d72
-000246 6c65
-000247 6f68
-000248 0a0d
-000249 3453
-00024a 203a
-00024b 6556
-00024c 6d72
-00024d 6c65
-00024e 6f68
-00024f 0a0d
-000250 3553
-000251 203a
-000252 6556
-000253 6d72
-000254 6c65
-000255 6f68
+000233 3153
+000234 203a
+000235 6556
+000236 6d72
+000237 6c65
+000238 6f68
+000239 0a0d
+00023a 3253
+00023b 203a
+00023c 6556
+00023d 6d72
+00023e 6c65
+00023f 6f68
+000240 0a0d
+000241 3353
+000242 203a
+000243 6556
+000244 6d72
+000245 6c65
+000246 6f68
+000247 0a0d
+000248 3453
+000249 203a
+00024a 6556
+00024b 6d72
+00024c 6c65
+00024d 6f68
+00024e 0a0d
+00024f 3553
+000250 203a
+000251 6556
+000252 6d72
+000253 6c65
+000254 6f68
+000255 0a0d
 000256 0a0d
-000257 0a0d
-000258 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000257 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 11
                                  msg11:
-000259 3153
-00025a 203a
-00025b 6556
-00025c 6d72
-00025d 6c65
-00025e 6f68
-00025f 0a0d
-000260 3253
-000261 203a
-000262 6556
-000263 6d72
-000264 6c65
-000265 6f68
-000266 0a0d
-000267 3353
-000268 203a
-000269 6556
-00026a 6472
-00026b 0d65
-00026c 530a
-00026d 3a34
-00026e 5620
-00026f 7265
-000270 656d
-000271 686c
-000272 0d6f
-000273 530a
-000274 3a35
-000275 5620
-000276 7265
-000277 656d
-000278 686c
-000279 0d6f
-00027a 0d0a
-00027b 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+000258 3153
+000259 203a
+00025a 6556
+00025b 6d72
+00025c 6c65
+00025d 6f68
+00025e 0a0d
+00025f 3253
+000260 203a
+000261 6556
+000262 6d72
+000263 6c65
+000264 6f68
+000265 0a0d
+000266 3353
+000267 203a
+000268 6556
+000269 6472
+00026a 0d65
+00026b 530a
+00026c 3a34
+00026d 5620
+00026e 7265
+00026f 656d
+000270 686c
+000271 0d6f
+000272 530a
+000273 3a35
+000274 5620
+000275 7265
+000276 656d
+000277 686c
+000278 0d6f
+000279 0d0a
+00027a 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  
                                  ; Estado 12
                                  msg12:
-00027c 3153
-00027d 203a
-00027e 6556
-00027f 6d72
-000280 6c65
-000281 6f68
-000282 0a0d
-000283 3253
-000284 203a
-000285 6556
-000286 6d72
-000287 6c65
-000288 6f68
-000289 0a0d
-00028a 3353
-00028b 203a
-00028c 6d41
-00028d 7261
-00028e 6c65
-00028f 0d6f
-000290 530a
-000291 3a34
-000292 5620
-000293 7265
-000294 656d
-000295 686c
-000296 0d6f
-000297 530a
-000298 3a35
-000299 5620
-00029a 7265
-00029b 656d
-00029c 686c
-00029d 0d6f
-00029e 0d0a
-00029f 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+00027b 3153
+00027c 203a
+00027d 6556
+00027e 6d72
+00027f 6c65
+000280 6f68
+000281 0a0d
+000282 3253
+000283 203a
+000284 6556
+000285 6d72
+000286 6c65
+000287 6f68
+000288 0a0d
+000289 3353
+00028a 203a
+00028b 6d41
+00028c 7261
+00028d 6c65
+00028e 0d6f
+00028f 530a
+000290 3a34
+000291 5620
+000292 7265
+000293 656d
+000294 686c
+000295 0d6f
+000296 530a
+000297 3a35
+000298 5620
+000299 7265
+00029a 656d
+00029b 686c
+00029c 0d6f
+00029d 0d0a
+00029e 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  ; ============================================================
                                  
                                  
@@ -2047,18 +2046,18 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Mapeamento do serial
                                  ; ============================================================
                                  serial_mensage:
-0002a0 00f0                      	.dw msg1
-0002a1 0115                      	.dw msg2
-0002a2 0138                      	.dw msg3
-0002a3 0161                      	.dw msg4
-0002a4 0186                      	.dw msg5
-0002a5 01a8                      	.dw msg6
-0002a6 01cb                      	.dw msg7
-0002a7 01ee                      	.dw msg8
-0002a8 0210                      	.dw msg9
-0002a9 0234                      	.dw msg10
-0002aa 0259                      	.dw msg11
-0002ab 027c                      	.dw msg12
+00029f 00ef                      	.dw msg1
+0002a0 0114                      	.dw msg2
+0002a1 0137                      	.dw msg3
+0002a2 0160                      	.dw msg4
+0002a3 0185                      	.dw msg5
+0002a4 01a7                      	.dw msg6
+0002a5 01ca                      	.dw msg7
+0002a6 01ed                      	.dw msg8
+0002a7 020f                      	.dw msg9
+0002a8 0233                      	.dw msg10
+0002a9 0258                      	.dw msg11
+0002aa 027b                      	.dw msg12
 
 
 RESOURCE USE INFORMATION
@@ -2078,7 +2077,7 @@ counted separately from r26..r31 here.
 "ATmega328P" register use summary:
 x  :   0 y  :   0 z  :   8 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
 r5 :   0 r6 :   0 r7 :   0 r8 :   0 r9 :   0 r10:   0 r11:   0 r12:   0 
-r13:   0 r14:   0 r15:   0 r16:   9 r17:   4 r18:   4 r19:  86 r20:  11 
+r13:   0 r14:   0 r15:   0 r16:   9 r17:   4 r18:   4 r19:  86 r20:  10 
 r21:   3 r22:   0 r23:   0 r24:   0 r25:   0 r26:   0 r27:   0 r28:   0 
 r29:   0 r30:  14 r31:  14 
 Registers used: 9 out of 35 (25.7%)
@@ -2102,13 +2101,13 @@ ror   :   0 sbc   :   0 sbci  :   0 sbi   :   1 sbic  :   0 sbis  :   0
 sbiw  :   0 sbr   :   1 sbrc  :   0 sbrs  :   0 sec   :   0 seh   :   0 
 sei   :   1 sen   :   0 ser   :   0 ses   :   0 set   :   0 sev   :   0 
 sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :  16 
-sub   :   0 subi  :   0 swap  :   1 tst   :   1 wdr   :   0 
-Instructions used: 33 out of 113 (29.2%)
+sub   :   0 subi  :   0 swap  :   0 tst   :   1 wdr   :   0 
+Instructions used: 32 out of 113 (28.3%)
 
 "ATmega328P" memory use summary [bytes]:
 Segment   Begin    End      Code   Data   Used    Size   Use%
 ---------------------------------------------------------------
-[.cseg] 0x000000 0x000558    350    948   1298   32768   4.0%
+[.cseg] 0x000000 0x000556    348    948   1296   32768   4.0%
 [.dseg] 0x000100 0x000100      0      0      0    2048   0.0%
 [.eseg] 0x000000 0x000000      0      0      0    1024   0.0%
 

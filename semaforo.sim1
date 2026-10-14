@@ -54,7 +54,7 @@
 
 <item itemtype="Led" CircId="Led-59" mainComp="false" Show_id="false" Show_Val="false" Pos="28,444" rotation="0" hflip="1" vflip="1" label="Led-59" idLabPos="-16,-24" labelrot="0" valLabPos="-16,20" valLabRot="0" Color="Red" Grounded="false" Threshold="1.8 V" MaxCurrent="30 mA" Resistance="0.6 Ω" />
 
-<item itemtype="SerialTerm" CircId="SerialTerm-76" mainComp="false" Show_id="false" Show_Val="false" Pos="-136,-148" rotation="0" hflip="1" vflip="1" label="SerialTerm-76" idLabPos="-20,-32" labelrot="0" valLabPos="-16,20" valLabRot="0" Baudrate="9600 _Bd" DataBits="8 _bits" StopBits="1 _bits" SerialMon="false" />
+<item itemtype="SerialTerm" CircId="SerialTerm-76" mainComp="false" Show_id="false" Show_Val="false" Pos="-136,-148" rotation="0" hflip="1" vflip="1" label="SerialTerm-76" idLabPos="-20,-32" labelrot="0" valLabPos="-16,20" valLabRot="0" Baudrate="9600 _Bd" DataBits="8 _bits" StopBits="1 _bits" SerialMon="true" />
 
 <item itemtype="Node" CircId="Node-13" mainComp="false" Pos="256,-84" />
 
@@ -244,10 +244,10 @@
 
 <item itemtype="Connector" uid="Connector-196" startpinid="Node-75-2" endpinid="Ground-5-Gnd" pointList="72,472,72,480" />
 
-<item itemtype="Connector" uid="Connector-198" startpinid="Led-57-lPin" endpinid="mega328-1-PORTD2" pointList="12,472,-168,472,-168,-60,-136,-60" />
-
-<item itemtype="Connector" uid="Connector-199" startpinid="mega328-1-PORTD3" endpinid="Led-59-lPin" pointList="-136,-52,-152,-52,-152,444,12,444" />
-
 <item itemtype="Connector" uid="Connector-200" startpinid="mega328-1-PORTD1" endpinid="SerialTerm-76-pin1" pointList="-136,-68,-176,-68,-176,-140,-160,-140" />
+
+<item itemtype="Connector" uid="Connector-201" startpinid="mega328-1-PORTD6" endpinid="Led-57-lPin" pointList="-136,4,-164,4,-164,472,12,472" />
+
+<item itemtype="Connector" uid="Connector-202" startpinid="mega328-1-PORTD7" endpinid="Led-59-lPin" pointList="-136,12,-148,12,-148,444,12,444" />
 
 </circuit>

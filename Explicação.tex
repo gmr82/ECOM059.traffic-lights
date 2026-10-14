@@ -1,0 +1,204 @@
+\documentclass[12pt,a4paper]{article}
+
+% Compilacao: pdfLaTeX (Overleaf)
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{longtable}
+\usepackage{array}
+
+\geometry{margin=2.5cm}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\setlist[itemize]{noitemsep,topsep=3pt}
+\lstdefinestyle{avr}{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!65!black},
+  commentstyle=\color{green!35!black},
+  stringstyle=\color{orange!55!black},
+  numbers=left,numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  frame=single,
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  morecomment=[l]{;},
+  morestring=[b]",
+  tabsize=4
+}
+\lstset{style=avr}
+
+\newcommand{\preencher}{\textit{[Escreva sua explicacao aqui.]}}
+\newcommand{\objetivo}[1]{\noindent\textbf{O que explicar:} #1\par\medskip}
+
+\title{Explicacao do Codigo -- Semaforo em Assembly AVR}
+\author{[Nome(s) do grupo]}
+\date{\today}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Visao geral do projeto}
+O projeto consiste em reproduzir o funcionamento dos semáforos de um cruzamento de 2 ruas com 5 semáforos, controlando os LEDs e transmitindo o status via serial e hexadecimal.
+
+\subsection{Fluxo geral de execucao}
+\begin{enumerate}
+    \item O \texttt{reset} configura pilha, portas, Timer1 e USART.
+    \item O codigo carrega o estado inicial e seus parametros da Flash.
+    \item A interrupcão do Timer1 controla a passagem dos estados.
+    \item A interrupcão USART UDRE transmite o status caractere por caractere.
+    \item O \texttt{loop} principal permanece ocioso.
+\end{enumerate}
+
+\section{Registradores e constantes}
+Atualmente temos os registradores \texttt{state\_count}, \texttt{count\_aux}, \texttt{serial\_low}, \texttt{serial\_high}, \texttt{temp} e \texttt{temp2}.
+\begin{longtable}{|>{\raggedright\arraybackslash}p{4cm}|p{9cm}|}
+\hline
+\textbf{Nome} & \textbf{Funcao no programa} \\ \hline
+\texttt{state\_count} & Indica o estado atual (0 a 11). \\ \hline
+\texttt{count\_aux} & Conta as repeticoes do periodo do Timer1. \\ \hline
+\texttt{serial\_low / serial\_high} & Guardam o endereco do proximo caractere a transmitir. \\ \hline
+\texttt{temp / temp2} & Registradores auxiliares. \\ \hline
+\end{longtable}
+
+\section{Inicializacao no \texttt{reset}}
+\subsection{Pilha e interrupcoes}
+Iniciamos a pilha para podermos trabalhar com subrotinas e ligamos as interrupções globais para que as interrupções do timer e serial possam ser tratadas.
+\begin{lstlisting}
+ldi temp, high(RAMEND)
+out SPH, temp
+ldi temp, low(RAMEND)
+out SPL, temp
+; ... configuracoes ...
+sei
+\end{lstlisting}
+Vale salientar que \textbf{\texttt{sei}} que habilita as interrupções globais.
+
+\subsection{Configuracao das portas}
+Aqui estamos configurando as saídas das portas DDRB, DDRC e DDRD da seguinte forma:
+\begin{longtable}{|>{\raggedright\arraybackslash}p{4cm}|p{9cm}|}
+\hline
+\textbf{Saída} & \textbf{Bits} \\ \hline
+\texttt{Semaforo 1} & 0 - 2 da porta B \\ \hline
+\texttt{Semaforo 2} & 3 - 5 da porta B \\ \hline
+\texttt{Semaforo 3} & 0 - 2 da porta C \\ \hline
+\texttt{Semaforo 4} & 3 - 5 da porta C \\ \hline
+\texttt{Semaforo 5} & 2 - 3 da porta D \\ \hline
+\texttt{Serial TX} & 1 da porta D \\ \hline
+\end{longtable}
+\begin{lstlisting}
+ldi temp, $3F
+out DDRB, temp
+out DDRC, temp
+ldi temp, $FD
+out DDRD, temp
+\end{lstlisting}
+Na porta B e C foram configurados 6 bits como saída (0 - 5) e na porta D foram configurados todos os bits como saída, exceto o bit 1 (TX) que é usada pela USART para transmitir os dados.
+
+\section{Tabela de estados dos LEDs na Flash}
+\objetivo{Explique os \texttt{.equ} para cada luz, a palavra de 16 bits de cada estado (\texttt{.dw}) e como os 14 bits representam os LEDs.}
+\begin{lstlisting}
+.equ S1_G = (1 << 0)
+.equ S1_Y = (1 << 1)
+.equ S1_R = (1 << 2)
+; ... outros semaforos ...
+mapeamento:
+    .dw S1_R|S2_R|S3_R|S4_R|S5_R
+    .dw S1_R|S2_R|S3_R|S4_R|S5_G
+\end{lstlisting}
+\noindent\textbf{O que representa o bit 1?} \preencher
+
+\subsection{Subrotina \texttt{charge\_leds}}
+\objetivo{Descreva: calculo de \texttt{state\_count * 2}, leitura dos dois bytes com \texttt{LPM}, mascaras, deslocamentos e distribuicao entre PORTB/PORTC/PORTD.}
+\preencher
+
+\section{Temporizacao com Timer1}
+\subsection{Modo CTC, clock e prescaler}
+\objetivo{Explique a frequencia de 16 MHz, o prescaler 1024, o modo CTC e o papel do registrador OCR1A.}
+\[
+T = \frac{(\mathrm{OCR1A}+1)\cdot \mathrm{prescaler}}{f_{\mathrm{CPU}}}
+\]
+\noindent\textbf{Exemplo com TOP = 15624:} \preencher
+
+\subsection{Tabelas \texttt{tops} e \texttt{qtd\_runs}}
+\objetivo{Mostre por que o mesmo estado pode precisar de varias comparacoes do Timer1 para durar mais que o periodo programado em OCR1A.}
+\begin{lstlisting}
+tops:
+    .dw 15624
+    .dw 62499
+    ; ...
+qtd_runs:
+    .db 0, 2, 8, 0, 10, 0, 0, 14, 0, 0, 9, 0
+\end{lstlisting}
+\preencher
+
+\subsection{Interrupcao \texttt{OCI1A\_Interrupt}}
+\objetivo{Explique quando decrementa \texttt{count\_aux}, quando incrementa \texttt{state\_count}, quando recarrega OCR1A e como o LED de pedestres pisca com \texttt{sbi PIND,3}.}
+\preencher
+
+\section{Comunicacao serial USART}
+\subsection{Configuracao de 9600 baud e 8N1}
+\objetivo{Explique UBRR0H/L, TXEN0, UCSR0C e o pino PD1 (TX).}
+\[
+\mathrm{UBRR} \approx \frac{f_{\mathrm{CPU}}}{16\cdot\mathrm{baud}}-1
+\]
+\preencher
+
+\subsection{Mensagens e ponteiros na Flash}
+\objetivo{Explique por que as mensagens terminam com zero; para que servem CR=13 e LF=10; e como \texttt{serial\_mensage} guarda os enderecos de \texttt{msg1}, \texttt{msg2}, etc.}
+\begin{lstlisting}
+msg1:
+    .db "S1: Vermelho; S2: Vermelho; ...", 13, 10, 0
+serial_mensage:
+    .dw msg1
+    .dw msg2
+    ; ...
+\end{lstlisting}
+\preencher
+
+\subsection{Subrotina \texttt{charge\_serial}}
+\objetivo{Mostre como o estado seleciona o endereco da mensagem e como habilitar UDRIE0 inicia o envio por interrupcao.}
+\preencher
+
+\subsection{Interrupcao \texttt{USART\_UDRE\_Interrupt}}
+\objetivo{Explique por que cada chamada envia apenas um caractere, o papel de \texttt{LPM}, \texttt{TST}, \texttt{UDR0}, \texttt{RETI} e por que desabilitar UDRIE0 ao chegar no byte zero.}
+\preencher
+
+\section{Protecao dos registradores nas interrupcoes}
+\objetivo{Explique \texttt{push}, \texttt{pop}, salvamento de SREG e por que a ordem de restauracao e inversa a de salvamento.}
+\preencher
+
+\section{Sequencia dos 12 estados}
+\objetivo{Preencha os tempos totais e descreva as cores em cada estado.}
+\begin{longtable}{|c|p{4cm}|p{4cm}|p{3cm}|}
+\hline
+\textbf{Estado} & \textbf{LEDs / cores} & \textbf{Tempo / repeticoes} & \textbf{Mensagem serial} \\ \hline
+1 & Todos vermelhos & 1 s & \texttt{msg1} \\ \hline
+2 & Pedestres verde; demais vermelhos & 3 periodos de 4 s & \texttt{msg2} \\ \hline
+3 & Pedestres vermelho piscando & Verificar contagem de 0,5 s & \texttt{msg3} \\ \hline
+4--12 & \preencher & \preencher & \texttt{msg4} a \texttt{msg12} \\ \hline
+\end{longtable}
+
+\section{Testes na simulacao e montagem fisica}
+\objetivo{Registre a frequencia configurada, a ligacao PD1 (TX) ao RX do terminal, a taxa 9600, os estados verificados e eventuais problemas.}
+\begin{itemize}
+    \item \textbf{Clock usado:} \preencher
+    \item \textbf{Ligacao serial:} \preencher
+    \item \textbf{Comportamento dos LEDs:} \preencher
+    \item \textbf{Mensagens recebidas:} \preencher
+    \item \textbf{Erros encontrados e solucoes:} \preencher
+\end{itemize}
+
+\section{Conclusao}
+\objetivo{Resuma como tabelas em Flash e interrupcoes permitem controlar os semaforos e transmitir o status sem consulta repetitiva de flags no loop principal.}
+\preencher
+
+\end{document}
