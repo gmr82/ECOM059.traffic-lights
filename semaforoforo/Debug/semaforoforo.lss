@@ -1,5 +1,5 @@
 
-AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Wed Oct 14 14:40:58 2026
+AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semaforoforo\main.asm Mon Oct 19 02:29:59 2026
 
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
 [builtin](2): Including file 'C:/Program Files (x86)\Atmel\Studio\7.0\Packs\atmel\ATmega_DFP\1.3.300\avrasm\inc\m328pdef.inc'
@@ -994,37 +994,101 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Determina um segmento de código para a FLASH
                                  .cseg
                                  
-                                 ; Manda PC para o endereço 0
-                                 .org 0
+                                 ; ==============================================
+                                 ; Registradores
+                                 ; ==============================================
+                                 .def state_count = r16 ; Contagem dos estados
+                                 .def serial_high = r17 ; Armazena a parte alta do endereço da mensagem do estado
+                                 .def serial_low = r18 ; Armazena a parte baixa do endereço da mensagem do estado
+                                 .def temp = r19 ; Registrador que auxilia durante o programa
+                                 .def temp2 = r20 ; Registrador que auxilia durante o programa
+                                 .def count_aux = r21 ; Conta quantas interrupções foram feitas pelo timer 1
+                                 .def dezena = r22 ; Armazena a dezena do display
+                                 .def unidade = r23 ; Armazena a unidade do display
+                                 .def display_select = r24 ; Alterna o display, entre dezena e unidade
+                                 .def s1count = r25 ; Conta 2 interrupções de 0.5s
+                                 ; ==============================================
                                  
-                                 ; Define um registrador para armazenar o contador de estados
-                                 .def state_count = r16
-                                 .def serial_high = r17
-                                 .def serial_low = r18
                                  
-                                 ; Registrador auxiliar
-                                 .def temp = r19
-                                 .def temp2 = r20
-                                 .def count_aux = r21
+                                 ; ==============================================
+                                 ; Constantes
+                                 ; ==============================================
+                                 .set state_limit = 12 ; Limite de estados
+                                 .set s1_limit = 2 ; Limite de interrupções para 1s
                                  
-                                 ; Limite de estados
-                                 .set state_limit = 12
+                                 .set d46 = 4 ; Dezena do primeiro ciclo
+                                 .set u46 = 6 ; Unidade do primeiro ciclo
+                                 .set d64 = 6 ; Dezena do estado de "aberto"
+                                 .set u64 = 4 ; Unidade do estado de "aberto"
+                                 .set d75 = 7 ; Dezena do estado de fechado
+                                 .set u75 = 5 ; Unidade do estado de fechado
                                  
-                                 ; Pula para o inicializador do maldito programa
-000000 940c 0027                 jmp reset
+                                 #define CLOCK 16.0e6 ; Define o clock como 16MHz
                                  
-                                 ; Move o PC para o endereço da interrupção do timer
-                                 .org OC1Aaddr
-                                 ; Desvia para a subrotina de tratamento do timer
-000016 c058                      rjmp OCI1A_Interrupt
+                                 ; #==== Timer 0 ====#
+                                 ; Será usado para o display
+                                 ; Este timer só conta até 256 (tem 1 byte só)
+                                 .equ delay0 = 2 ; Define um delay de 5ms
+                                 .equ prescale0 = 0b101 ; Fixa o prescale do timer 2 em 1024
+                                 .equ prescale_div0 = 1024 ; Valor do prescale fixado
+                                 .equ TOP0 = int(((CLOCK * delay0)/(prescale_div0 * 1000)) - 1) ; Expressão que calcula o TOP0
+                                 .equ WGM0 = 0b10 ; Para configurar o timer 0 no modo ctc
+                                 ; #===================
                                  
-                                 ; Move o PC para o endereço da interrupção de envio
-                                 .org UDREaddr
-                                 ; Desvia para a subrotina de tratamento de envio da serial
-000026 c02e                      rjmp USART_UDRE_Interrupt
+                                 ; #==== Timer 1 ====#
+                                 ; Será usado para interrupção do estado
+                                 .equ delay = 500 ; Define um delay de 500ms
+                                 .equ prescale = 0b0100 ; Fixa o prescale do timer 1 em 256
+                                 .equ prescale_div = 256 ; Valor do prescale fixado
+                                 .equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1) ; Expressão que calcula o TOP
+                                 .equ WGM = 0b0100 ; Pra configurar o timer 1 no modo ctc
+                                 ; #===================
+                                  
+                                  ; #==== USART ====#
+                                 .equ baundrate = 9600 ; Define o baundrate em 9600 ideal para uma comunicação moderada
+                                 .equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1) ; Valor do UBRR
+                                 ; #===================
+                                 ; ==============================================
+                                 
+                                 
+                                 
+                                 ; ==============================================
+                                 ; Inicia o tudo
+                                 ; ==============================================
+                                 .org 0 ; Manda PC para o endereço 0
+000000 940c 0027                 jmp reset ; Pula para o inicializador do maldito programa
+                                 ; ==============================================
+                                 
+                                 
+                                 
+                                 ; ==============================================
+                                 ; Tratamento da interrupção do timer 1
+                                 ; ==============================================
+                                 .org OC1Aaddr ; Move o PC para o endereço da interrupção do timer 1
+000016 c087                      rjmp OCI1A_Interrupt ; Desvia para a subrotina de tratamento do timer 1
+                                 ; ==============================================
+                                 
+                                 
+                                 ; ==============================================
+                                 ; Tratamento da interrupção do timer 1
+                                 ; ==============================================
+                                 .org OC0Aaddr ; Move o PC para o endereço da interrupção do timer 0
+00001c c069                      rjmp TIMER0_Interrupt ; Desvia para a subrotina de tratamento do timer 0
+                                 ; ==============================================
+                                 
+                                 
+                                 
+                                 ; ==============================================
+                                 ; Tratamento da interrupção do serial
+                                 ; ==============================================
+                                 .org UDREaddr ; Move o PC para o endereço da interrupção de envio
+000026 c045                      rjmp USART_UDRE_Interrupt ; Desvia para a subrotina de tratamento de envio da serial
+                                 ; ==============================================
+                                 
+                                 
                                  
                                  ; ============================================================
-                                 ; Inicia todos os parâmetros
+                                 ; Reset
                                  ; ============================================================
                                  reset:
                                  	; ---- Inicia a pilha para podermos utilizar subrotinas ----
@@ -1034,369 +1098,524 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
 00002a bf3d                      	out SPL, temp
                                  	; ----------------------------------------------------------
                                  
+                                 	
+00002b 2700                      	clr state_count ; Zera o contador de estados
+00002c 2788                      	clr display_select ; Zera o seletor do display
+00002d 2799                      	clr s1count ; Zera o contador de interrupções para contar 1s
                                  
-                                 	; ---- Configurações iniciais ----
-                                 	; zera state_count
-00002b 2700                      	clr state_count
-                                 
-                                 	; Define o clock como 16MHz
-                                 	#define CLOCK 16.0e6
-                                 	; Define um delay de 500ms
-                                 	.equ delay = 500
-                                 	; Fixa o prescale em 1024
-                                 	.equ prescale = 0b0100
-                                 	; Valor do prescale fixado
-                                 	.equ prescale_div = 256
-                                 	; Expressão que calcula o TOP
-                                 	.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1)
-                                 
-                                 	; Define o baundrate em 9600 ideal para uma comunicação moderada
-                                 	.equ baundrate = 9600
-                                 	; Valor do UBRR
-                                 	.equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1)
-                                 
-                                 	; Pra configurar o timer no modo ctc (contar tanto cansa)
-                                 	.equ WGM = 0b0100
-                                 	; ----------------------------------------------------------
+00002e d012                      	rcall init_uart ; Inicializa a transmissão
+00002f d00a                      	rcall init_ports ; Inicializa as portas dos leds
                                  
                                  
-                                 	; ---- Configura o serial ----
+000030 d0ad                      	rcall charge_leds ; Carrega o estado inicial dos leds
+000031 d0cd                      	rcall charge_serial ; Carrega a mensagem inicial
+000032 d0c5                      	rcall charge_runtimes ; Carrega a quantidade de vezes que o estado inicial vai rodar
+                                 
+000033 e064                      	ldi dezena, d46 ; Carrega 7 do display no registrador da dezena
+000034 e076                      	ldi unidade, u46 ; Carrega 6 do display no registrador da unidade
+                                 
+000035 d024                      	rcall init_timer ; Inicia o timer 1
+000036 d017                      	rcall init_timer0 ; Inicia o timer 0
+                                 
+000037 9478                      	sei ; Habilita as interrupções globais
+                                 ; ============================================================
+                                 	
+                                 
+                                 
+                                 ; ============================================================
+                                 ; Looping principal
+                                 ; ============================================================
+                                 loop:
+000038 940c 0038                 	jmp loop
+                                 
+                                 ; ============================================================
+                                 
+                                 
+                                 
+                                 ; ============================================================
+                                 ; Iniciando os periféricos
+                                 ; ============================================================
+                                 ; #==== Inicializa as portas de saída ====#
+                                 init_ports:
+                                 	; Configura como saída de 0 - 5 para a porta B
+00003a e33f                      	ldi temp, $3F
+00003b b934                      	out DDRB, temp
+                                 
+                                 	; Configura como saída de 0 - 5 para a porta C
+00003c e33f                      	ldi temp, $3F
+00003d b937                      	out DDRC, temp
+                                 
+                                 	; Configura como saída os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
+00003e ef3d                      	ldi temp, $FD
+00003f b93a                      	out DDRD, temp
+                                 	
+000040 9508                      	ret
+                                 ; #=====================================#
+                                 
+                                 
+                                 ; #==== Inicializa o registrador do serial ====#
+                                 init_uart:
                                  	; configurando o Baund rate register
-00002c e030                      	ldi temp, high(UBRRvalue)
-00002d 9330 00c5                 	sts UBRR0H, temp
-00002f e637                      	ldi temp, low(UBRRvalue)
-000030 9330 00c4                 	sts UBRR0L, temp
+000041 e030                      	ldi temp, high(UBRRvalue)
+000042 9330 00c5                 	sts UBRR0H, temp
+000044 e637                      	ldi temp, low(UBRRvalue)
+000045 9330 00c4                 	sts UBRR0L, temp
                                  
                                  	; Configurando o USART control and status registrer C
                                  	; UMSEL01 E UMSEL01 = 0 0 ---> Modo assincrono
                                  	; UPM01 E UPM00 = 0 0 ----> Paridade desativada
                                  	; USBS0 = 0 ----> 1 Bit de parada
                                  	; UCSZ02, UCSZ01 E UCSZ00 = 0 1 1 ----> 8 bits por transimissão, ideal para transmitir caracteres
-000032 e036                      	ldi temp, (0b11 << UCSZ00)
-000033 9330 00c2                 	sts UCSR0C, temp
+000047 e036                      	ldi temp, (0b11 << UCSZ00)
+000048 9330 00c2                 	sts UCSR0C, temp
                                  
-                                 	; Habilidando a transmissão dos sinais extraterrestres
-000035 e038                      	ldi temp, (1 << TXEN0)
-000036 9330 00c1                 	sts UCSR0B, temp
+                                 	; Habilidando a transmissão
+00004a e038                      	ldi temp, (1 << TXEN0)
+00004b 9330 00c1                 	sts UCSR0B, temp
                                  
-000038 d077                      	rcall charge_serial
-                                 	; ----------------------------------------------------------
-                                 
-                                 
-                                 	; ---- Configura porta como saída ----
-                                 	; Configura como saída de 0 - 5 para a porta B
-000039 e33f                      	ldi temp, $3F
-00003a b934                      	out DDRB, temp
-                                 
-                                 	; Configura como saída de 0 - 5 para a porta C
-00003b e33f                      	ldi temp, $3F
-00003c b937                      	out DDRC, temp
-                                 
-                                 	; Configura como saída os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
-00003d ef3d                      	ldi temp, $FD
-00003e b93a                      	out DDRD, temp
-                                 	; ----------------------------------------------------------
+00004d 9508                      	ret
+                                 ; #=====================================#
                                  
                                  
-                                 	; ---- Carregamento inicial da entrada ----
-00003f d04f                      	rcall charge_leds
-                                 	; ----------------------------------------------------------
+                                 ; #==== Inicia o timer 0 ====#
+                                 init_timer0:
+                                 	; Carrega o TOP do timer 0
+00004e e13e                      	ldi temp, TOP0
+00004f bd37                      	out OCR0A, temp
                                  
+                                 	; Habilita a interrpução pelo timer 0
+000050 9130 006e                 	lds temp, TIMSK0
+000052 6032                      	ori temp, (1 << OCIE0A)
+000053 9330 006e                 	sts TIMSK0, temp
                                  
-                                 	; ---- Carregamento inicial da qtd de vezes que vai rodar a miséria ----
-000040 d068                      	rcall charge_runtimes
-                                 	; ----------------------------------------------------------
+                                 	; Coloca o timer 0 no modo CTC
+000055 e032                      	ldi temp, (WGM0 << WGM00)
+000056 bd34                      	out TCCR0A, temp
                                  
+                                 	; Inicia o timer 0 com o prescale 1024
+000057 e035                      	ldi temp, (prescale0 << CS00)
+000058 bd35                      	out TCCR0B, temp
                                  
-                                 	; ---- Configura inicialmente o timer ----
-                                 	
+000059 9508                      	ret
+                                 ; #=====================================#
+                                 
+                                 ; #==== Inicia o timer 1 ====#
+                                 init_timer:
                                  	; Carrega o valor de top no registrador OCR1A
-000041 e73a                      	ldi temp, high(TOP)
-000042 9330 0089                 	sts OCR1AH, temp
-000044 e131                      	ldi temp, low(TOP)
-000045 9330 0088                 	sts OCR1AL, temp
+00005a e73a                      	ldi temp, high(TOP)
+00005b 9330 0089                 	sts OCR1AH, temp
+00005d e131                      	ldi temp, low(TOP)
+00005e 9330 0088                 	sts OCR1AL, temp
                                  
                                  	;Habilita as interrupções do timer
                                  	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
-000047 9130 006f                 	lds temp, TIMSK1
+000060 9130 006f                 	lds temp, TIMSK1
                                  	;Seta OCIE1A para 1, habilitando as interrupções via timer
-000049 6032                      	sbr temp, 1 << OCIE1A
+000062 6032                      	sbr temp, 1 << OCIE1A
                                  	;Carrega para o registrador de controle do timer
-00004a 9330 006f                 	sts TIMSK1, temp
+000063 9330 006f                 	sts TIMSK1, temp
                                  
-                                 	; Configurar o timer bolado pra contar (maldito só sabe contar até 4.12s)
+                                 	; Configurar o timer bolado pra contar (maldito só sabe contar até 0.5s	)
                                  	; WGM&0b11 = 0b0100 & 0b0011 = 0b0000 
-00004c e030                      	ldi temp, ((WGM&0b11) << WGM10)
-00004d 9330 0080                 	sts TCCR1A, temp
+000065 e030                      	ldi temp, ((WGM&0b11) << WGM10)
+000066 9330 0080                 	sts TCCR1A, temp
                                  
                                  	;2 bits mais significativos de WGM e seleção de clock
                                  	; WGM >> 2 = 0b0100 >> 2 = 0b0001
                                  	; (WGM >> 2) << WGM12 = (0b0001 << 3) = 0b0001000
                                  	; (PRESCALE << CS10) = 0b101 << 0 = 0b101
                                  	; 0b0001000 | 0b101 = 0b0001101
-00004f e03c                      	ldi temp, ((WGM>>2)<<WGM12)|(prescale << CS10)
-000050 9330 0081                 	sts TCCR1B, temp
-                                 	; ----------------------------------------------------------
+000068 e03c                      	ldi temp, ((WGM>>2)<<WGM12)|(prescale << CS10)
+000069 9330 0081                 	sts TCCR1B, temp
                                  
-                                 
-                                 	; ---- Habilita globalmente as interrupções ----
-000052 9478                      	sei
-                                 	; ----------------------------------------------------------
-                                 ; ============================================================
-                                 	
-                                 
-                                 ; ============================================================
-                                 ; Looping principal
-                                 ; ============================================================
-                                 loop:
-000053 940c 0053                 	jmp loop
-                                 
+00006b 9508                      	ret
+                                 ; #=====================================#
                                  ; ============================================================
                                  
                                  
+                                 
                                  ; ============================================================
-                                 ; Tratamento da interrupção de mensagem
+                                 ; Tratamento das interrupções
                                  ; ============================================================
+                                 ; #==== Interrupção de transmissão do serial ====#
                                  USART_UDRE_Interrupt:
-000055 933f                      	push temp
-000056 b73f                      	in temp, SREG
-000057 933f                      	push temp
+                                 	; Armazena inicialmente alguns registradores por precaução
+00006c 933f                      	push temp
+00006d b73f                      	in temp, SREG
+00006e 933f                      	push temp
+00006f 93ff                      	push ZH
+000070 93ef                      	push ZL
                                  
-000058 93ff                      	push ZH
-000059 93ef                      	push ZL
                                  
-                                 	; Carrega o endereço da mensagem no registrador Z
-00005a 2fe2                      	mov ZL, serial_low
-00005b 2ff1                      	mov ZH, serial_high
+                                 	; Carrega o endereço, no registrador Z, da mensagem que será enviada
+000071 2fe2                      	mov ZL, serial_low
+000072 2ff1                      	mov ZH, serial_high
                                  
-                                 	; Carrega o byte que tá em Z e incrementa
-00005c 9135                      	lpm temp, Z+
                                  
-                                 	; Guarda o endereço do Z
-00005d 2f2e                      	mov serial_low, ZL
-00005e 2f1f                      	mov serial_high, ZH
+                                 	; Carrega o caracter na posição de Z e atualiza para o próximo endereço
+                                 	; Estamos enviando caracter por caracter
+000073 9135                      	lpm temp, Z+
+                                 
+                                 
+                                 	; Guarda o endereço atualizado para continuar o envio da mensagem
+000074 2f2e                      	mov serial_low, ZL
+000075 2f1f                      	mov serial_high, ZH
+                                 
                                  
                                  	; tst verifica se o valor de temp é 0, se for ele levanta a flag de zero no SREG
-00005f 2333                      	tst temp
-                                 	; Desvia para desligar a baixaria
-000060 f019                      	breq fim_serial
+000076 2333                      	tst temp
+                                 	; Desvia, caso tenha recebido 0, para encerrar o envio da mensagem
+000077 f019                      	breq fim_serial
                                  
-                                 	; Manda o caracter pra o UDR
-000061 9330 00c6                 	sts UDR0, temp
+                                 	; Manda o caracter pra o UDR enviando ele pro serial
+000078 9330 00c6                 	sts UDR0, temp
                                  
                                  	; Desvia para a saída da função
-000063 c005                      	rjmp saida_serial
+00007a c005                      	rjmp saida_serial
                                  
-                                 	; Desliga a interrupção da serial
+                                 	; Encerra o envio desligando a interrupção
                                  	fim_serial:
-000064 9130 00c1                 		lds temp, UCSR0B
-000066 7d3f                      		andi temp, ~(1 << UDRIE0)
-000067 9330 00c1                 		sts UCSR0B, temp
+00007b 9130 00c1                 		lds temp, UCSR0B
+00007d 7d3f                      		andi temp, ~(1 << UDRIE0)
+00007e 9330 00c1                 		sts UCSR0B, temp
                                  
-                                 	; Saida
+                                 	; Sai da interrupção
                                  	saida_serial:
-000069 91ef                      		pop ZL
-00006a 91ff                      		pop ZH
-00006b 913f                      		pop temp
-00006c bf3f                      		out SREG, temp
-00006d 913f                      		pop temp
+000080 91ef                      		pop ZL
+000081 91ff                      		pop ZH
+000082 913f                      		pop temp
+000083 bf3f                      		out SREG, temp
+000084 913f                      		pop temp
                                  
-00006e 9518                      		reti
-                                 ; ============================================================
+000085 9518                      		reti
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; Tratamendo da interrupção de timer
-                                 ; ============================================================
+                                 ; #==== Interrupção do timer 0 ====#
+                                 TIMER0_Interrupt:
+000086 933f                      	push temp
+000087 b73f                      	in temp, SREG
+000088 933f                      	push temp
+000089 934f                      	push temp2
+                                 
+                                 	; Faz um xor zerando ou setando 1 na seleção do display
+00008a e031                      	ldi temp, 1
+00008b 2783                      	eor display_select, temp
+00008c b13b                      	in temp, PORTD
+                                 
+                                 
+00008d 2388                      	tst display_select
+00008e f029                      	breq mostra_unidade
+                                 
+                                 	mostra_dezena:
+00008f 6031                      		ori temp, (1 << 0)
+000090 2f46                      		mov temp2, dezena
+                                 
+000091 d07e                      		rcall charge_display
+000092 940c 0099                 		jmp saida_timer
+                                 		 
+                                 	mostra_unidade:
+000094 7f3e                      		andi temp, ~(1 << 0)
+000095 2f47                      		mov temp2, unidade
+                                 
+000096 d079                      		rcall charge_display
+000097 940c 0099                 		jmp saida_timer
+                                 
+                                 	; Saída
+                                 	saida_timer:
+000099 914f                      		pop temp2
+00009a 913f                      		pop temp
+00009b bf3f                      		out SREG, temp
+00009c 913f                      		pop temp
+                                 
+00009d 9518                      		reti
+                                 ; ; #=====================================#
+                                 
+                                 
+                                 ; #==== Interrupção do timer 1 ====#
                                  OCI1A_Interrupt:
-                                 	; conceitualmente salvando o sreg ('_')
-00006f 933f                      	push temp
-000070 b73f                      	in temp, SREG
-000071 933f                      	push temp
+                                 	; Armazena inicialmente alguns registradores por precaução
+00009e 933f                      	push temp
+00009f b73f                      	in temp, SREG
+0000a0 933f                      	push temp
+0000a1 934f                      	push temp2
+0000a2 93ef                      	push ZL
+0000a3 93ff                      	push ZH
                                  
-000072 934f                      	push temp2
-000073 93ef                      	push ZL
-000074 93ff                      	push ZH
+                                 	; incrementa
+0000a4 9593                      	inc s1count
                                  
-                                 	; Verifica se count_aux tá zerado pra passar pro próximo estado
-000075 3050                      	cpi count_aux, 0
-000076 f029                      	breq proximo_estado
+                                 	; Verifica se contou 1s
+0000a5 3092                      	cpi s1count, s1_limit
+0000a6 f469                      	brne continua
                                  
-                                 	; Decrementa o miserável
-000077 955a                      	dec count_aux
+                                 	; Testa se a unidade zerou
+0000a7 2377                      	tst unidade
+0000a8 f021                      	breq decrementa_dezena
                                  
-                                 	; Verifica se tá no estado que o vermelho de pedestres pisca pra piscar ele
-000078 3002                      	cpi state_count, 2
-000079 f471                      	brne exit
+                                 	decrementa_unidade:
+0000a9 957a                      		dec unidade
+0000aa 2799                      		clr s1count
+0000ab 940c 00b4                 		jmp continua
                                  
-                                 	; Seta 1 no bit 3 do PIND
-                                 	; A malandragem é que se escrever 1 no PIND ele inverte o valor do bit
-                                 	; Se estava 0 (LED apagado), vira 1 (LED aceso)
-                                 	; Se estava 1 (LED aceso), vira 0 (LED apagado)
-00007a 9a4f                      	sbi PIND, 7
+                                 	decrementa_dezena:
+0000ad 2366                      		tst dezena
+0000ae f029                      		breq continua
+                                 		
+0000af 956a                      		dec dezena
+0000b0 e079                      		ldi unidade, 9
+0000b1 2799                      		clr s1count
+0000b2 940c 00b4                 		jmp continua
                                  
-00007b c00c                      	rjmp exit
+                                 	continua:
+                                 		; Verifica se o contador auxiliar é 0, caso seja, pula para o próximo estado
+0000b4 3050                      		cpi count_aux, 0
+0000b5 f029                      		breq proximo_estado
+                                 
+                                 		; Caso o contador não seja 0 significa que ainda não mudou de estado e decrementa ele
+0000b6 955a                      		dec count_aux
+                                 
+                                 		; Verifica se está no estado (Fechando para pedestres), caso não esteja ele desvia pra saída
+0000b7 3002                      		cpi state_count, 2
+0000b8 f4f1                      		brne exit
+                                 
+                                 		; Caso esteja no estado 2 faz o led vermelho piscar
+                                 		; Seta 1 no bit 7 do PIND
+                                 		; A ideia é que se escrever 1 no PIND ele inverte o valor do bit
+                                 		; Se estava 0 (LED apagado), vira 1 (LED aceso)
+                                 		; Se estava 1 (LED aceso), vira 0 (LED apagado)
+0000b9 9a4f                      		sbi PIND, 7
+                                 
+0000ba c01c                      		rjmp exit
                                  
                                  
+                                 	; Passa para o próximo estado
                                  	proximo_estado:
-                                 		; Passa pro próximo estado
-00007c 9503                      		inc state_count
+                                 		; Incrementa para passar pro próximo estado
+0000bb 9503                      		inc state_count
                                  
-                                 		; Verifica se chegou ao último estado
-00007d 300c                      		cpi state_count, state_limit
-                                 		; Caso não pula pra carregar o próximo estado
-00007e f008                      		brlo estado_valido
+                                 		; Verifica se chegou ao último estado, caso não seja ele desvia para carregar o próximo estado
+0000bc 300c                      		cpi state_count, state_limit
+0000bd f008                      		brlo estado_valido
                                  
-                                 		; Volta pro estado inicial
-00007f 2700                      		clr state_count
+                                 		; Caso seja o último estado ele zera o estate_count fazendo voltar para o primeiro estado
+0000be 2700                      		clr state_count
                                  
                                  	
                                  	; Carrega o próximo estado
                                  	estado_valido:
-                                 		; Carrega os leds
-000080 d00e                      		rcall charge_leds
+                                 		; Carrega o 64
+0000bf 3007                      		cpi state_count, 7
+0000c0 f021                      		breq carrega_64
                                  
-                                 		; Prepara a ablação do caba
-000081 d02e                      		rcall charge_serial
+                                 		; Carrega o 76
+0000c1 3009                      		cpi state_count, 9
+0000c2 f039                      		breq carrega_75
+                                 
+0000c3 940c 00cf                 		jmp continua2
+                                 
+                                 		carrega_64:
+0000c5 e066                      			ldi dezena, d64
+0000c6 e074                      			ldi unidade, u64
+0000c7 2799                      			clr s1count
+0000c8 940c 00cf                 			jmp continua2
+                                 
+                                 		carrega_75:
+0000ca e067                      			ldi dezena, d75
+0000cb e075                      			ldi unidade, u75
+0000cc 2799                      			clr s1count
+0000cd 940c 00cf                 			jmp continua2
+                                 
+                                 		continua2:
+                                 			; Carrega o novo estado dos leds
+0000cf d00e                      			rcall charge_leds
+                                 
+                                 			; Prepara para tramissão da mensagem do novo estado
+0000d0 d02e                      			rcall charge_serial
                                  		
-                                 		; Zera o contador do timer
-000082 2733                      		clr temp
-000083 9330 0085                 		sts TCNT1H, temp
-000085 9330 0084                 		sts TCNT1L, temp
+                                 			; Zera o contador do timer
+0000d1 2733                      			clr temp
+0000d2 9330 0085                 			sts TCNT1H, temp
+0000d4 9330 0084                 			sts TCNT1L, temp
                                  
-                                 		; Carregamento inicial da qtd de vezes que vai rodar a miséria
-000087 d021                      		rcall charge_runtimes
+                                 			; Carrega a nova quantidade de vezes que ele vai interromper
+0000d6 d021                      			rcall charge_runtimes
                                  
                                  	; Saida
-                                 	; Despusha o SREG
                                  	exit:
-000088 91ff                      		pop ZH
-000089 91ef                      		pop ZL
-00008a 914f                      		pop temp2
-00008b 913f                      		pop temp
-00008c bf3f                      		out SREG, temp
-00008d 913f                      		pop temp
+0000d7 91ff                      		pop ZH
+0000d8 91ef                      		pop ZL
+0000d9 914f                      		pop temp2
+0000da 913f                      		pop temp
+0000db bf3f                      		out SREG, temp
+0000dc 913f                      		pop temp
                                  
-00008e 9518                      	reti
+0000dd 9518                      	reti
+                                 ; #=====================================#
                                  ; ============================================================
                                  
                                  
+                                 
                                  ; ============================================================
-                                 ; Carrega o mapeamento dos leds
+                                 ; Carregamento
                                  ; ============================================================
+                                 ; #==== Carrega o estado dos leds ====#
                                  charge_leds:
-                                 	; Configurando z com o mapeamento inicial
-00008f e0f1                      	ldi ZH, high(mapeamento << 1)
-000090 e8e2                      	ldi ZL, low(mapeamento << 1)
+                                 	; Configurando Z com o endereço do mapeamento dos leds
+0000de e0f2                      	ldi ZH, high(mapeamento << 1)
+0000df e2ec                      	ldi ZL, low(mapeamento << 1)
                                  
-                                 	; Multiplica o state_count por 2
-000091 2f30                      	mov temp, state_count
-000092 0f33                      	lsl temp
+                                 	; Multiplica o state_count por 2 para podermos fazer um incrementador dinâmico
+                                 	; Desta forma vai funcionar como um vetor em que cada estado é um índice e tem sua configuração específica
+                                 	; Isso é necessário pois no mapeamento armazenamos 2 bytes(1 palavra)
+0000e0 2f30                      	mov temp, state_count
+0000e1 0f33                      	lsl temp
                                  
                                  	; Incrementa para pegar o indice certo do mapeamento
-000093 0fe3                      	add ZL, temp
-000094 2733                      	clr temp
-000095 1ff3                      	adc ZH, temp
+0000e2 0fe3                      	add ZL, temp
+0000e3 2733                      	clr temp
+0000e4 1ff3                      	adc ZH, temp
                                  
                                  	; Carrega os leds do estado
-000096 9135                      	lpm temp, Z+ ; Lê o menos significativo
-000097 9144                      	lpm temp2, Z ; Lê o mais significativo
+0000e5 9135                      	lpm temp, Z+ ; Lê o menos significativo
+0000e6 9144                      	lpm temp2, Z ; Lê o mais significativo
                                  
                                  	; Carrega 6 leds na porta B (De 0 - 5)
-000098 933f                      	push temp
-                                 	; Mascara pra pegar os 6 bits
-000099 733f                      	andi temp, $3F
-00009a b935                      	out PORTB, temp
-00009b 913f                      	pop temp
+                                 	; Armazena o temp para não perdermos com a próxima operação
+0000e7 933f                      	push temp
                                  
-                                 	; Gambiarra pra pegar os dois últimos bits que não foram para PORTB
-                                 	; O lsl desloca os bits para << e joga o bit 7 no carry
-                                 	; O rol desloca os bits de temp2 para << e joga o carry no bit 0
-00009c 0f33                      	lsl temp
-00009d 1f44                      	rol temp2
-00009e 0f33                      	lsl temp
-00009f 1f44                      	rol temp2
+                                 	; Mascara pra pegar os 6 bits
+                                 	; 3F = 00111111
+                                 	; O andi vai zerar apenas os dois últimos bits
+0000e8 733f                      	andi temp, $3F
+                                 	; Joga os 6 bits na porta B
+0000e9 b935                      	out PORTB, temp
+                                 	; Restaura temp para pegarmos os 2 bits que faltaram
+0000ea 913f                      	pop temp
+                                 
+                                 	; Pega os dois últimos bits que não foram para PORTB
+                                 	; A ideia é fazer algo como:
+                                 	; temp = 11000000 << 1 = 10000000 e C = 1
+                                 	; temp2 = 00000000 << 1 = 00000001 e C = 0
+                                 	; temp = 10000000 << 1 = 00000000 e C = 1
+                                 	; temp2 = 00000001 << 1 = 00000011 e C = 0
+0000eb 0f33                      	lsl temp ; Desloca todos os bits para << e joga o mais significativo no carry
+0000ec 1f44                      	rol temp2 ; Desloca todos os bits para << e pega o bit do carry e joga no menos significativo
+0000ed 0f33                      	lsl temp ; Desloca todos os bits para << e joga o mais significativo no carry
+0000ee 1f44                      	rol temp2 ; Desloca todos os bits para << e pega o bit do carry e joga no menos significativo
                                  
                                  	; Carrega mais 6 leds na porta C (De 0 - 5)
-0000a0 2f34                      	mov temp, temp2
+                                 	; Copia o que está no temp2 para o temp. Isso ajuda pois depois precisaremos pegar os 2 últimos bits de temp2
+0000ef 2f34                      	mov temp, temp2
                                  	; Mascara pra pegar os 6 bits
-0000a1 733f                      	andi temp, $3F
-0000a2 b938                      	out PORTC, temp
+                                 	; 3F = 00111111
+0000f0 733f                      	andi temp, $3F
+                                 	; Joga os 6 bits na porta C
+0000f1 b938                      	out PORTC, temp
                                  
-                                 	; Troca os 4 primeiros bits com os últimos 4 bits
+                                 
                                  	; Mascara pra pegar os 2 bits
-0000a3 7c40                      	andi temp2, $C0
+                                 	; C0 = 110000
+                                 	; O andi vai prezervar apenas os dois primeiros bits
+0000f2 7c40                      	andi temp2, $C0
+                                 
                                  	; Pega o que tá na porta D
-0000a4 b13b                      	in temp, PORTD
+                                 	; Como a porta D também vai estar com o serial, displays e controle deles precisamos evitar sobreescrever
+0000f3 b13b                      	in temp, PORTD
+                                 
                                  	; Zera só o que tiver nos bits que queremos
-0000a5 733f                      	andi temp, $3F
-                                 	; Junta com o que tem no temp 2
-0000a6 2b34                      	or temp, temp2
-                                 	; Escreve na porta D
-0000a7 b93b                      	out PORTD, temp
-                                 	; ----------------------------------------------------------
+                                 	; 3F = 00111111
+0000f4 733f                      	andi temp, $3F
                                  
-0000a8 9508                      	ret
-                                 ; ============================================================
+                                 	; Junta o que tem na porta D com o estado atual dos 2 últimos leds
+0000f5 2b34                      	or temp, temp2
+                                 	; Joga tudo na porta D
+0000f6 b93b                      	out PORTD, temp
+                                 
+0000f7 9508                      	ret
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; Carrega a quantidade de vezes que cada interrupção vai rodar
-                                 ; ============================================================
+                                 ; #==== Carrega a quantidade de vezes que cada interrupção vai rodar ====#
                                  charge_runtimes:
-                                 	; Carregando o top inicial em Z
-0000a9 e0f1                      	ldi ZH, high(qtd_runs << 1)
-0000aa e9ea                      	ldi ZL, low(qtd_runs << 1)
+                                 	; Configurando Z com o endereço do mapeamento da quantidade de vezes que vai rodar em cada estado 
+0000f8 e0f2                      	ldi ZH, high(qtd_runs << 1)
+0000f9 e4e4                      	ldi ZL, low(qtd_runs << 1)
                                  
-                                 	; Funciona igual ao carregamento do próximo estado
-0000ab 0fe0                      	add ZL, state_count
-0000ac 2733                      	clr temp
-0000ad 1ff3                      	adc ZH, temp
+                                 	; Soma o state_count ao endereço de Z para jogar na posição certa
+                                 	; Aqui não multiplicamos por 2 pois qtd_runs armazena de byte em byte, logo, cada indice do array tem 1 byte
+0000fa 0fe0                      	add ZL, state_count
+0000fb 2733                      	clr temp
+0000fc 1ff3                      	adc ZH, temp
                                  
-                                 	; Carrega o byte menos significativo do top
-0000ae 9154                      	lpm count_aux, z
+                                 	; Carrega o a quantidade de vezes que o estado vai rodar em count_aux
+0000fd 9154                      	lpm count_aux, z
                                  
-0000af 9508                      	ret
-                                 ; ============================================================
+0000fe 9508                      	ret
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; Prepara para mandar a mensagem
-                                 ; ============================================================
+                                 ; #==== Prepara para mandar a mensagem ====#
                                  charge_serial:
-0000b0 e0f5                      	ldi ZH, high(serial_mensage << 1)
-0000b1 e0e6                      	ldi ZL, low(serial_mensage << 1)
+                                 	; Configurando Z com o endereço das mensagens do serial
+0000ff e0f5                      	ldi ZH, high(serial_mensage << 1)
+000100 ebe0                      	ldi ZL, low(serial_mensage << 1)
                                  	
-                                 	; Multiplica por 2
-0000b2 2f30                      	mov temp, state_count
-0000b3 0f33                      	lsl temp
+                                 	; Multiplica o state_count por 2 para podermos fazer um incrementador dinâmico
+                                 	; Desta forma vai funcionar como um vetor em que cada estado é um índice e tem sua configuração específica
+                                 	; Isso é necessário pois no mapeamento armazenamos 2 bytes(1 palavra)
+000101 2f30                      	mov temp, state_count
+000102 0f33                      	lsl temp
                                  
-                                 	; Incrementa certo
-0000b4 0fe3                      	add ZL, temp
-0000b5 2733                      	clr temp
-0000b6 1ff3                      	adc ZH, temp
+                                 	; Incrementa para pegar o indice certo do mapeamento
+000103 0fe3                      	add ZL, temp
+000104 2733                      	clr temp
+000105 1ff3                      	adc ZH, temp
                                  
-                                 	; Carrega da memoria
-0000b7 9125                      	lpm serial_low, Z+
-0000b8 9114                      	lpm serial_high, Z
+                                 	; Carrega qual mensagem vamos mandar
+                                 	; Aqui ele meio que carrega como "string", ou seja, se for msg1 ele vai carregar "msg1"
+000106 9125                      	lpm serial_low, Z+ ; Pega o byte menos significativo
+000107 9114                      	lpm serial_high, Z ; Pega o byte mais significativo
                                  
-                                 	; Multiplica por 2, isso será usado como endereço para a mensagem enviada
-0000b9 0f22                      	lsl serial_low
-0000ba 1f11                      	rol serial_high
+                                 	; Para transformar a mensagem em um endereço e carregar no registrador Z depois precisamos multiplicar por 2
+                                 	; É igual a essa lógica, em que i representa o estado:
+                                 	; ldi ZH, high(msgi << 1)
+                                 	; ldi ZL, low(msgi << 1)
+                                 	; após isso teremos o msg1 como um endereço pronto pra ser usado
+000108 0f22                      	lsl serial_low
+000109 1f11                      	rol serial_high
                                  
                                  	; Liga a interrupção de UDR0
                                  	; Desta forma se UDR0 estiver vazio ele vai interromper pra enviar a mensagem -_-'
-0000bb 9130 00c1                 	lds temp, UCSR0B
-0000bd 6230                      	ori temp, (1 << UDRIE0)
-0000be 9330 00c1                 	sts UCSR0b, temp
+00010a 9130 00c1                 	lds temp, UCSR0B
+00010c 6230                      	ori temp, (1 << UDRIE0)
+00010d 9330 00c1                 	sts UCSR0b, temp
                                  
-0000c0 9508                      	ret
+00010f 9508                      	ret
+                                 ; #=====================================#
+                                 
+                                 
+                                 ; #==== Carrega o display ====#
+                                 charge_display:
+000110 7c33                      	andi temp, 0b11000011
+                                 
+000111 0f44                      	lsl temp2
+000112 0f44                      	lsl temp2
+                                 
+000113 2b34                      	or temp, temp2
+                                 
+000114 b93b                      	out PORTD, temp
+                                 
+000115 9508                      	ret
+                                 ; #=====================================#
                                  ; ============================================================
                                  
                                  
-                                 ; ============================================================
-                                 ; Mapeamento dos leds marotos
                                  
+                                 ; ============================================================
+                                 ; Dados da FLASH
+                                 ; ============================================================
+                                 ;#==== Mapeamento dos leds ====#
                                  ; StoN
                                  ; Semaforo 1: verde (bit 0), amarelo (bit 1), vermelho (bit 2)
                                  ; StoW
@@ -1407,65 +1626,58 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; Semaforo 4: verde (bit 9), amarelo (bit 10), vermelho (bit 11)
                                  ; Nc+Sc
                                  ; Semaforo 5: verde (bit 12), vermelho(bit 13)
-                                 ; ============================================================
+                                 
                                  ; Semaforo 1
                                  .equ S1_G = (1 << 0)
                                  .equ S1_Y = (1 << 1)
                                  .equ S1_R = (1 << 2)
-                                 
                                  ; Semaforo 2
                                  .equ S2_G = (1 << 3)
                                  .equ S2_Y = (1 << 4)
                                  .equ S2_R = (1 << 5)
-                                 
                                  ; Semaforo 3
                                  .equ S3_G = (1 << 6)
                                  .equ S3_Y = (1 << 7)
                                  .equ S3_R = (1 << 8)
-                                 
-                                 
                                  ; Semaforo 4
                                  .equ S4_G = (1 << 9)
                                  .equ S4_Y = (1 << 10)
                                  .equ S4_R = (1 << 11)
-                                 
                                  ; Semaforo 5
                                  .equ S5_G = (1 << 12)
                                  .equ S5_R = (1 << 13)
                                  
-                                 
+                                 ; Guarda o estado dos leds
                                  mapeamento:
                                  	; Estado 1
-0000c1 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000116 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 2
-0000c2 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
+000117 1924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_G 
                                  	; Estado 3
                                  	; O de pedestre pisca
-0000c3 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000118 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 4
-0000c4 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+000119 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 5
-0000c5 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
+00011a 2909                      	.dw S1_G|S2_G|S3_R|S4_R|S5_R
                                  	; Estado 6
-0000c6 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
+00011b 2911                      	.dw S1_G|S2_Y|S3_R|S4_R|S5_R
                                  	; Estado 7
-0000c7 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
+00011c 2921                      	.dw S1_G|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 8
-0000c8 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
+00011d 2321                      	.dw S1_G|S2_R|S3_R|S4_G|S5_R
                                  	; Estado 9
-0000c9 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
+00011e 2522                      	.dw S1_Y|S2_R|S3_R|S4_Y|S5_R
                                  	; Estado 10
-0000ca 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
+00011f 2924                      	.dw S1_R|S2_R|S3_R|S4_R|S5_R
                                  	; Estado 11
-0000cb 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
+000120 2864                      	.dw S1_R|S2_R|S3_G|S4_R|S5_R
                                  	; Estado 12
-0000cc 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
-                                 ; ============================================================
+000121 28a4                      	.dw S1_R|S2_R|S3_Y|S4_R|S5_R
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; Mapeamento da quantidade de vezes que vai acontecer as interrupções
-                                 ; ============================================================
+                                 ; #==== Mapeamento da quantidade de vezes que vai acontecer as interrupções ====#
                                  qtd_runs:
                                  ; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
                                  ; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
@@ -1481,504 +1693,501 @@ AVRASM ver. 2.2.7  C:\Users\m4the\Documents\Atmel Studio\7.0\semaforoforo\semafo
                                  ; 4s -> vai rodar 8 vezes de 0.5s
                                  ; 25s -> vai rodar 60 vezes de 0.5s
                                  ; 4s -> vai rodar 8 vezes de 0.5s
-0000cd 1701
-0000ce 0307
-0000cf 072b
-0000d0 7701
-0000d1 0107
-0000d2 0731                      .db 1, 23, 7, 3, 43, 7, 1, 119, 7, 1, 49, 7
-                                 ; ============================================================
+000122 1701
+000123 0307
+000124 072b
+000125 7701
+000126 0107
+000127 0731                      .db 1, 23, 7, 3, 43, 7, 1, 119, 7, 1, 49, 7
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; mensagens para mandar
-                                 ; ============================================================
+                                 ; #==== mensagens para mandar ====#
                                  ; Estado 1
                                  msg1:
-0000d3 3153
-0000d4 203a
-0000d5 6556
-0000d6 6d72
-0000d7 6c65
-0000d8 6f68
-0000d9 0a0d
-0000da 3253
-0000db 203a
-0000dc 6556
-0000dd 6d72
-0000de 6c65
-0000df 6f68
-0000e0 0a0d
-0000e1 3353
-0000e2 203a
-0000e3 6556
-0000e4 6d72
-0000e5 6c65
-0000e6 6f68
-0000e7 0a0d
-0000e8 3453
-0000e9 203a
-0000ea 6556
-0000eb 6d72
-0000ec 6c65
-0000ed 6f68
-0000ee 0a0d
-0000ef 3553
-0000f0 203a
-0000f1 6556
-0000f2 6d72
-0000f3 6c65
-0000f4 6f68
-0000f5 0a0d
-0000f6 0a0d
-0000f7 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
-                                 
-                                 ; Estado 2
-                                 msg2:
-0000f8 3153
-0000f9 203a
-0000fa 6556
-0000fb 6d72
-0000fc 6c65
-0000fd 6f68
-0000fe 0a0d
-0000ff 3253
-000100 203a
-000101 6556
-000102 6d72
-000103 6c65
-000104 6f68
-000105 0a0d
-000106 3353
-000107 203a
-000108 6556
-000109 6d72
-00010a 6c65
-00010b 6f68
-00010c 0a0d
-00010d 3453
-00010e 203a
-00010f 6556
-000110 6d72
-000111 6c65
-000112 6f68
-000113 0a0d
-000114 3553
-000115 203a
-000116 6556
-000117 6472
-000118 0d65
-000119 0d0a
-00011a 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
-                                 
-                                 ; Estado 3
-                                 msg3:
-00011b 3153
-00011c 203a
-00011d 6556
-00011e 6d72
-00011f 6c65
-000120 6f68
-000121 0a0d
-000122 3253
-000123 203a
-000124 6556
-000125 6d72
-000126 6c65
-000127 6f68
-000128 0a0d
-000129 3353
-00012a 203a
-00012b 6556
-00012c 6d72
-00012d 6c65
-00012e 6f68
-00012f 0a0d
-000130 3453
-000131 203a
-000132 6556
-000133 6d72
-000134 6c65
-000135 6f68
-000136 0a0d
-000137 3553
-000138 203a
-000139 6556
-00013a 6d72
-00013b 6c65
-00013c 6f68
-00013d 7020
-00013e 7369
-00013f 6163
-000140 646e
-000141 0d6f
-000142 0d0a
-000143 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
-                                 
-                                 ; Estado 4
-                                 msg4:
-000144 3153
+000128 3153
+000129 203a
+00012a 6556
+00012b 6d72
+00012c 6c65
+00012d 6f68
+00012e 0a0d
+00012f 3253
+000130 203a
+000131 6556
+000132 6d72
+000133 6c65
+000134 6f68
+000135 0a0d
+000136 3353
+000137 203a
+000138 6556
+000139 6d72
+00013a 6c65
+00013b 6f68
+00013c 0a0d
+00013d 3453
+00013e 203a
+00013f 6556
+000140 6d72
+000141 6c65
+000142 6f68
+000143 0a0d
+000144 3553
 000145 203a
 000146 6556
 000147 6d72
 000148 6c65
 000149 6f68
 00014a 0a0d
-00014b 3253
-00014c 203a
-00014d 6556
-00014e 6d72
-00014f 6c65
-000150 6f68
-000151 0a0d
-000152 3353
-000153 203a
-000154 6556
-000155 6d72
-000156 6c65
-000157 6f68
-000158 0a0d
-000159 3453
-00015a 203a
-00015b 6556
-00015c 6d72
-00015d 6c65
-00015e 6f68
-00015f 0a0d
-000160 3553
-000161 203a
-000162 6556
-000163 6d72
-000164 6c65
-000165 6f68
-000166 0a0d
-000167 0a0d
-000168 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+00014b 0a0d
+00014c 0000                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
-                                 ; Estado 5
-                                 msg5:
-000169 3153
+                                 ; Estado 2
+                                 msg2:
+00014d 3153
+00014e 203a
+00014f 6556
+000150 6d72
+000151 6c65
+000152 6f68
+000153 0a0d
+000154 3253
+000155 203a
+000156 6556
+000157 6d72
+000158 6c65
+000159 6f68
+00015a 0a0d
+00015b 3353
+00015c 203a
+00015d 6556
+00015e 6d72
+00015f 6c65
+000160 6f68
+000161 0a0d
+000162 3453
+000163 203a
+000164 6556
+000165 6d72
+000166 6c65
+000167 6f68
+000168 0a0d
+000169 3553
 00016a 203a
 00016b 6556
 00016c 6472
 00016d 0d65
-00016e 530a
-00016f 3a32
-000170 5620
-000171 7265
-000172 6564
-000173 0a0d
-000174 3353
-000175 203a
-000176 6556
-000177 6d72
-000178 6c65
-000179 6f68
-00017a 0a0d
-00017b 3453
-00017c 203a
-00017d 6556
-00017e 6d72
-00017f 6c65
-000180 6f68
-000181 0a0d
-000182 3553
-000183 203a
-000184 6556
-000185 6d72
-000186 6c65
-000187 6f68
-000188 0a0d
-000189 0a0d
-00018a 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
+00016e 0d0a
+00016f 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
+                                 
+                                 ; Estado 3
+                                 msg3:
+000170 3153
+000171 203a
+000172 6556
+000173 6d72
+000174 6c65
+000175 6f68
+000176 0a0d
+000177 3253
+000178 203a
+000179 6556
+00017a 6d72
+00017b 6c65
+00017c 6f68
+00017d 0a0d
+00017e 3353
+00017f 203a
+000180 6556
+000181 6d72
+000182 6c65
+000183 6f68
+000184 0a0d
+000185 3453
+000186 203a
+000187 6556
+000188 6d72
+000189 6c65
+00018a 6f68
+00018b 0a0d
+00018c 3553
+00018d 203a
+00018e 6556
+00018f 6d72
+000190 6c65
+000191 6f68
+000192 7020
+000193 7369
+000194 6163
+000195 646e
+000196 0d6f
+000197 0d0a
+000198 000a                          .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
+                                 
+                                 ; Estado 4
+                                 msg4:
+000199 3153
+00019a 203a
+00019b 6556
+00019c 6d72
+00019d 6c65
+00019e 6f68
+00019f 0a0d
+0001a0 3253
+0001a1 203a
+0001a2 6556
+0001a3 6d72
+0001a4 6c65
+0001a5 6f68
+0001a6 0a0d
+0001a7 3353
+0001a8 203a
+0001a9 6556
+0001aa 6d72
+0001ab 6c65
+0001ac 6f68
+0001ad 0a0d
+0001ae 3453
+0001af 203a
+0001b0 6556
+0001b1 6d72
+0001b2 6c65
+0001b3 6f68
+0001b4 0a0d
+0001b5 3553
+0001b6 203a
+0001b7 6556
+0001b8 6d72
+0001b9 6c65
+0001ba 6f68
+0001bb 0a0d
+0001bc 0a0d
+0001bd 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+                                 
+                                 ; Estado 5
+                                 msg5:
+0001be 3153
+0001bf 203a
+0001c0 6556
+0001c1 6472
+0001c2 0d65
+0001c3 530a
+0001c4 3a32
+0001c5 5620
+0001c6 7265
+0001c7 6564
+0001c8 0a0d
+0001c9 3353
+0001ca 203a
+0001cb 6556
+0001cc 6d72
+0001cd 6c65
+0001ce 6f68
+0001cf 0a0d
+0001d0 3453
+0001d1 203a
+0001d2 6556
+0001d3 6d72
+0001d4 6c65
+0001d5 6f68
+0001d6 0a0d
+0001d7 3553
+0001d8 203a
+0001d9 6556
+0001da 6d72
+0001db 6c65
+0001dc 6f68
+0001dd 0a0d
+0001de 0a0d
+0001df 0000                      	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 6
                                  msg6:
-00018b 3153
-00018c 203a
-00018d 6556
-00018e 6472
-00018f 0d65
-000190 530a
-000191 3a32
-000192 4120
-000193 616d
-000194 6572
-000195 6f6c
-000196 0a0d
-000197 3353
-000198 203a
-000199 6556
-00019a 6d72
-00019b 6c65
-00019c 6f68
-00019d 0a0d
-00019e 3453
-00019f 203a
-0001a0 6556
-0001a1 6d72
-0001a2 6c65
-0001a3 6f68
-0001a4 0a0d
-0001a5 3553
-0001a6 203a
-0001a7 6556
-0001a8 6d72
-0001a9 6c65
-0001aa 6f68
-0001ab 0a0d
-0001ac 0a0d
-0001ad 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+0001e0 3153
+0001e1 203a
+0001e2 6556
+0001e3 6472
+0001e4 0d65
+0001e5 530a
+0001e6 3a32
+0001e7 4120
+0001e8 616d
+0001e9 6572
+0001ea 6f6c
+0001eb 0a0d
+0001ec 3353
+0001ed 203a
+0001ee 6556
+0001ef 6d72
+0001f0 6c65
+0001f1 6f68
+0001f2 0a0d
+0001f3 3453
+0001f4 203a
+0001f5 6556
+0001f6 6d72
+0001f7 6c65
+0001f8 6f68
+0001f9 0a0d
+0001fa 3553
+0001fb 203a
+0001fc 6556
+0001fd 6d72
+0001fe 6c65
+0001ff 6f68
+000200 0a0d
+000201 0a0d
+000202 0000                      	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 7
                                  msg7:
-0001ae 3153
-0001af 203a
-0001b0 6556
-0001b1 6472
-0001b2 0d65
-0001b3 530a
-0001b4 3a32
-0001b5 5620
-0001b6 7265
-0001b7 656d
-0001b8 686c
-0001b9 0d6f
-0001ba 530a
-0001bb 3a33
-0001bc 5620
-0001bd 7265
-0001be 656d
-0001bf 686c
-0001c0 0d6f
-0001c1 530a
-0001c2 3a34
-0001c3 5620
-0001c4 7265
-0001c5 656d
-0001c6 686c
-0001c7 0d6f
-0001c8 530a
-0001c9 3a35
-0001ca 5620
-0001cb 7265
-0001cc 656d
-0001cd 686c
-0001ce 0d6f
-0001cf 0d0a
-0001d0 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+000203 3153
+000204 203a
+000205 6556
+000206 6472
+000207 0d65
+000208 530a
+000209 3a32
+00020a 5620
+00020b 7265
+00020c 656d
+00020d 686c
+00020e 0d6f
+00020f 530a
+000210 3a33
+000211 5620
+000212 7265
+000213 656d
+000214 686c
+000215 0d6f
+000216 530a
+000217 3a34
+000218 5620
+000219 7265
+00021a 656d
+00021b 686c
+00021c 0d6f
+00021d 530a
+00021e 3a35
+00021f 5620
+000220 7265
+000221 656d
+000222 686c
+000223 0d6f
+000224 0d0a
+000225 000a                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  
                                  ; Estado 8
                                  msg8:
-0001d1 3153
-0001d2 203a
-0001d3 6556
-0001d4 6472
-0001d5 0d65
-0001d6 530a
-0001d7 3a32
-0001d8 5620
-0001d9 7265
-0001da 656d
-0001db 686c
-0001dc 0d6f
-0001dd 530a
-0001de 3a33
-0001df 5620
-0001e0 7265
-0001e1 656d
-0001e2 686c
-0001e3 0d6f
-0001e4 530a
-0001e5 3a34
-0001e6 5620
-0001e7 7265
-0001e8 6564
-0001e9 0a0d
-0001ea 3553
-0001eb 203a
-0001ec 6556
-0001ed 6d72
-0001ee 6c65
-0001ef 6f68
-0001f0 0a0d
-0001f1 0a0d
-0001f2 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000226 3153
+000227 203a
+000228 6556
+000229 6472
+00022a 0d65
+00022b 530a
+00022c 3a32
+00022d 5620
+00022e 7265
+00022f 656d
+000230 686c
+000231 0d6f
+000232 530a
+000233 3a33
+000234 5620
+000235 7265
+000236 656d
+000237 686c
+000238 0d6f
+000239 530a
+00023a 3a34
+00023b 5620
+00023c 7265
+00023d 6564
+00023e 0a0d
+00023f 3553
+000240 203a
+000241 6556
+000242 6d72
+000243 6c65
+000244 6f68
+000245 0a0d
+000246 0a0d
+000247 0000                      	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 9
                                  msg9:
-0001f3 3153
-0001f4 203a
-0001f5 6d41
-0001f6 7261
-0001f7 6c65
-0001f8 0d6f
-0001f9 530a
-0001fa 3a32
-0001fb 5620
-0001fc 7265
-0001fd 656d
-0001fe 686c
-0001ff 0d6f
-000200 530a
-000201 3a33
-000202 5620
-000203 7265
-000204 656d
-000205 686c
-000206 0d6f
-000207 530a
-000208 3a34
-000209 4120
-00020a 616d
-00020b 6572
-00020c 6f6c
-00020d 0a0d
-00020e 3553
-00020f 203a
-000210 6556
-000211 6d72
-000212 6c65
-000213 6f68
-000214 0a0d
-000215 0a0d
-000216 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+000248 3153
+000249 203a
+00024a 6d41
+00024b 7261
+00024c 6c65
+00024d 0d6f
+00024e 530a
+00024f 3a32
+000250 5620
+000251 7265
+000252 656d
+000253 686c
+000254 0d6f
+000255 530a
+000256 3a33
+000257 5620
+000258 7265
+000259 656d
+00025a 686c
+00025b 0d6f
+00025c 530a
+00025d 3a34
+00025e 4120
+00025f 616d
+000260 6572
+000261 6f6c
+000262 0a0d
+000263 3553
+000264 203a
+000265 6556
+000266 6d72
+000267 6c65
+000268 6f68
+000269 0a0d
+00026a 0a0d
+00026b 0000                      	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 10
                                  msg10:
-000217 3153
-000218 203a
-000219 6556
-00021a 6d72
-00021b 6c65
-00021c 6f68
-00021d 0a0d
-00021e 3253
-00021f 203a
-000220 6556
-000221 6d72
-000222 6c65
-000223 6f68
-000224 0a0d
-000225 3353
-000226 203a
-000227 6556
-000228 6d72
-000229 6c65
-00022a 6f68
-00022b 0a0d
-00022c 3453
-00022d 203a
-00022e 6556
-00022f 6d72
-000230 6c65
-000231 6f68
-000232 0a0d
-000233 3553
-000234 203a
-000235 6556
-000236 6d72
-000237 6c65
-000238 6f68
-000239 0a0d
-00023a 0a0d
-00023b 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+00026c 3153
+00026d 203a
+00026e 6556
+00026f 6d72
+000270 6c65
+000271 6f68
+000272 0a0d
+000273 3253
+000274 203a
+000275 6556
+000276 6d72
+000277 6c65
+000278 6f68
+000279 0a0d
+00027a 3353
+00027b 203a
+00027c 6556
+00027d 6d72
+00027e 6c65
+00027f 6f68
+000280 0a0d
+000281 3453
+000282 203a
+000283 6556
+000284 6d72
+000285 6c65
+000286 6f68
+000287 0a0d
+000288 3553
+000289 203a
+00028a 6556
+00028b 6d72
+00028c 6c65
+00028d 6f68
+00028e 0a0d
+00028f 0a0d
+000290 0000                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
                                  
                                  ; Estado 11
                                  msg11:
-00023c 3153
-00023d 203a
-00023e 6556
-00023f 6d72
-000240 6c65
-000241 6f68
-000242 0a0d
-000243 3253
-000244 203a
-000245 6556
-000246 6d72
-000247 6c65
-000248 6f68
-000249 0a0d
-00024a 3353
-00024b 203a
-00024c 6556
-00024d 6472
-00024e 0d65
-00024f 530a
-000250 3a34
-000251 5620
-000252 7265
-000253 656d
-000254 686c
-000255 0d6f
-000256 530a
-000257 3a35
-000258 5620
-000259 7265
-00025a 656d
-00025b 686c
-00025c 0d6f
-00025d 0d0a
-00025e 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+000291 3153
+000292 203a
+000293 6556
+000294 6d72
+000295 6c65
+000296 6f68
+000297 0a0d
+000298 3253
+000299 203a
+00029a 6556
+00029b 6d72
+00029c 6c65
+00029d 6f68
+00029e 0a0d
+00029f 3353
+0002a0 203a
+0002a1 6556
+0002a2 6472
+0002a3 0d65
+0002a4 530a
+0002a5 3a34
+0002a6 5620
+0002a7 7265
+0002a8 656d
+0002a9 686c
+0002aa 0d6f
+0002ab 530a
+0002ac 3a35
+0002ad 5620
+0002ae 7265
+0002af 656d
+0002b0 686c
+0002b1 0d6f
+0002b2 0d0a
+0002b3 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
                                  
                                  ; Estado 12
                                  msg12:
-00025f 3153
-000260 203a
-000261 6556
-000262 6d72
-000263 6c65
-000264 6f68
-000265 0a0d
-000266 3253
-000267 203a
-000268 6556
-000269 6d72
-00026a 6c65
-00026b 6f68
-00026c 0a0d
-00026d 3353
-00026e 203a
-00026f 6d41
-000270 7261
-000271 6c65
-000272 0d6f
-000273 530a
-000274 3a34
-000275 5620
-000276 7265
-000277 656d
-000278 686c
-000279 0d6f
-00027a 530a
-00027b 3a35
-00027c 5620
-00027d 7265
-00027e 656d
-00027f 686c
-000280 0d6f
-000281 0d0a
-000282 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
-                                 ; ============================================================
+0002b4 3153
+0002b5 203a
+0002b6 6556
+0002b7 6d72
+0002b8 6c65
+0002b9 6f68
+0002ba 0a0d
+0002bb 3253
+0002bc 203a
+0002bd 6556
+0002be 6d72
+0002bf 6c65
+0002c0 6f68
+0002c1 0a0d
+0002c2 3353
+0002c3 203a
+0002c4 6d41
+0002c5 7261
+0002c6 6c65
+0002c7 0d6f
+0002c8 530a
+0002c9 3a34
+0002ca 5620
+0002cb 7265
+0002cc 656d
+0002cd 686c
+0002ce 0d6f
+0002cf 530a
+0002d0 3a35
+0002d1 5620
+0002d2 7265
+0002d3 656d
+0002d4 686c
+0002d5 0d6f
+0002d6 0d0a
+0002d7 000a                      	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+                                 ; #=====================================#
                                  
                                  
-                                 ; ============================================================
-                                 ; Mapeamento do serial
-                                 ; ============================================================
+                                 ; #==== Mapeamento do serial ====#
                                  serial_mensage:
-000283 00d3                      	.dw msg1
-000284 00f8                      	.dw msg2
-000285 011b                      	.dw msg3
-000286 0144                      	.dw msg4
-000287 0169                      	.dw msg5
-000288 018b                      	.dw msg6
-000289 01ae                      	.dw msg7
-00028a 01d1                      	.dw msg8
-00028b 01f3                      	.dw msg9
-00028c 0217                      	.dw msg10
-00028d 023c                      	.dw msg11
-00028e 025f                      	.dw msg12
+0002d8 0128                      	.dw msg1
+0002d9 014d                      	.dw msg2
+0002da 0170                      	.dw msg3
+0002db 0199                      	.dw msg4
+0002dc 01be                      	.dw msg5
+0002dd 01e0                      	.dw msg6
+0002de 0203                      	.dw msg7
+0002df 0226                      	.dw msg8
+0002e0 0248                      	.dw msg9
+0002e1 026c                      	.dw msg10
+0002e2 0291                      	.dw msg11
+0002e3 02b4                      	.dw msg12
+                                 ; #=====================================#
 
 
 RESOURCE USE INFORMATION
@@ -1998,37 +2207,37 @@ counted separately from r26..r31 here.
 "ATmega328P" register use summary:
 x  :   0 y  :   0 z  :   6 r0 :   0 r1 :   0 r2 :   0 r3 :   0 r4 :   0 
 r5 :   0 r6 :   0 r7 :   0 r8 :   0 r9 :   0 r10:   0 r11:   0 r12:   0 
-r13:   0 r14:   0 r15:   0 r16:   8 r17:   4 r18:   4 r19:  79 r20:   8 
-r21:   3 r22:   0 r23:   0 r24:   0 r25:   0 r26:   0 r27:   0 r28:   0 
+r13:   0 r14:   0 r15:   0 r16:  10 r17:   4 r18:   4 r19: 102 r20:  15 
+r21:   3 r22:   6 r23:   7 r24:   3 r25:   7 r26:   0 r27:   0 r28:   0 
 r29:   0 r30:  12 r31:  12 
-Registers used: 9 out of 35 (25.7%)
+Registers used: 13 out of 35 (37.1%)
 
 "ATmega328P" instruction use summary:
 .lds  :   0 .sts  :   0 adc   :   3 add   :   3 adiw  :   0 and   :   0 
-andi  :   5 asr   :   0 bclr  :   0 bld   :   0 brbc  :   0 brbs  :   0 
-brcc  :   0 brcs  :   0 break :   0 breq  :   2 brge  :   0 brhc  :   0 
+andi  :   7 asr   :   0 bclr  :   0 bld   :   0 brbc  :   0 brbs  :   0 
+brcc  :   0 brcs  :   0 break :   0 breq  :   7 brge  :   0 brhc  :   0 
 brhs  :   0 brid  :   0 brie  :   0 brlo  :   1 brlt  :   0 brmi  :   0 
-brne  :   1 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 
+brne  :   2 brpl  :   0 brsh  :   0 brtc  :   0 brts  :   0 brvc  :   0 
 brvs  :   0 bset  :   0 bst   :   0 call  :   0 cbi   :   0 cbr   :   0 
-clc   :   0 clh   :   0 cli   :   0 cln   :   0 clr   :   6 cls   :   0 
+clc   :   0 clh   :   0 cli   :   0 cln   :   0 clr   :  12 cls   :   0 
 clt   :   0 clv   :   0 clz   :   0 com   :   0 cp    :   0 cpc   :   0 
-cpi   :   3 cpse  :   0 dec   :   1 eor   :   0 fmul  :   0 fmuls :   0 
-fmulsu:   0 icall :   0 ijmp  :   0 in    :   3 inc   :   1 jmp   :   2 
-ld    :   0 ldd   :   0 ldi   :  19 lds   :   3 lpm   :   9 lsl   :   5 
-lsr   :   0 mov   :   7 movw  :   0 mul   :   0 muls  :   0 mulsu :   0 
-neg   :   0 nop   :   0 or    :   1 ori   :   1 out   :  10 pop   :  10 
-push  :  10 rcall :   6 ret   :   3 reti  :   2 rjmp  :   4 rol   :   3 
+cpi   :   6 cpse  :   0 dec   :   3 eor   :   1 fmul  :   0 fmuls :   0 
+fmulsu:   0 icall :   0 ijmp  :   0 in    :   5 inc   :   2 jmp   :   9 
+ld    :   0 ldd   :   0 ldi   :  30 lds   :   4 lpm   :   9 lsl   :   7 
+lsr   :   0 mov   :   9 movw  :   0 mul   :   0 muls  :   0 mulsu :   0 
+neg   :   0 nop   :   0 or    :   2 ori   :   3 out   :  15 pop   :  13 
+push  :  13 rcall :  12 ret   :   8 reti  :   3 rjmp  :   5 rol   :   3 
 ror   :   0 sbc   :   0 sbci  :   0 sbi   :   1 sbic  :   0 sbis  :   0 
 sbiw  :   0 sbr   :   1 sbrc  :   0 sbrs  :   0 sec   :   0 seh   :   0 
 sei   :   1 sen   :   0 ser   :   0 ses   :   0 set   :   0 sev   :   0 
-sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :  14 
-sub   :   0 subi  :   0 swap  :   0 tst   :   1 wdr   :   0 
-Instructions used: 32 out of 113 (28.3%)
+sez   :   0 sleep :   0 spm   :   0 st    :   0 std   :   0 sts   :  15 
+sub   :   0 subi  :   0 swap  :   0 tst   :   4 wdr   :   0 
+Instructions used: 33 out of 113 (29.2%)
 
 "ATmega328P" memory use summary [bytes]:
 Segment   Begin    End      Code   Data   Used    Size   Use%
 ---------------------------------------------------------------
-[.cseg] 0x000000 0x00051e    316    924   1240   32768   3.8%
+[.cseg] 0x000000 0x0005c8    488    924   1412   32768   4.3%
 [.dseg] 0x000100 0x000100      0      0      0    2048   0.0%
 [.eseg] 0x000000 0x000000      0      0      0    1024   0.0%
 
