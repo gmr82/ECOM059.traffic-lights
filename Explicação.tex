@@ -1,6 +1,4 @@
 \documentclass[12pt,a4paper]{article}
-
-% Compilacao: pdfLaTeX (Overleaf)
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[brazil]{babel}
@@ -12,88 +10,86 @@
 \usepackage{enumitem}
 \usepackage{longtable}
 \usepackage{array}
-
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{microtype}
 \geometry{margin=2.5cm}
-\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+\hypersetup{colorlinks=true,linkcolor=blue!45!black,urlcolor=blue!55!black}
 \setlist[itemize]{noitemsep,topsep=3pt}
-\lstdefinestyle{avr}{
-  basicstyle=\ttfamily\small,
-  keywordstyle=\color{blue!65!black},
-  commentstyle=\color{green!35!black},
-  stringstyle=\color{orange!55!black},
-  numbers=left,numberstyle=\tiny\color{gray},
-  numbersep=8pt,
-  frame=single,
-  breaklines=true,
-  columns=fullflexible,
-  keepspaces=true,
-  showstringspaces=false,
-  morecomment=[l]{;},
-  morestring=[b]",
-  tabsize=4
-}
+\setlist[enumerate]{itemsep=2pt,topsep=4pt}
+\lstdefinestyle{avr}{basicstyle=\ttfamily\footnotesize,keywordstyle=\color{blue!60!black},commentstyle=\color{green!35!black},numbers=left,numberstyle=\tiny\color{gray},numbersep=8pt,frame=single,breaklines=true,columns=fullflexible,keepspaces=true,showstringspaces=false,morecomment=[l]{;},tabsize=4}
 \lstset{style=avr}
-
-\newcommand{\preencher}{\textit{[Escreva sua explicacao aqui.]}}
-\newcommand{\objetivo}[1]{\noindent\textbf{O que explicar:} #1\par\medskip}
-
-\title{Explicacao do Codigo -- Semaforo em Assembly AVR}
+\newcommand{\reg}[1]{\texttt{#1}}
+\newcommand{\subrot}[1]{\texttt{#1}}
+\title{Explicação do Código -- Semáforo em Assembly AVR}
 \author{[Nome(s) do grupo]}
-\date{\today}
-
+\date{19 de outubro de 2026}
+\emergencystretch=3em
 \begin{document}
 \maketitle
 \tableofcontents
 \newpage
 
-\section{Visao geral do projeto}
-O projeto consiste em reproduzir o funcionamento dos semáforos de um cruzamento de 2 ruas com 5 semáforos, controlando os LEDs e transmitindo o status via serial e hexadecimal.
+\section{Visão geral do projeto}
+O programa implementa uma máquina de estados para um cruzamento com quatro semáforos veiculares (S1 a S4) e um semáforo de pedestres (S5), totalizando 14 LEDs. A lógica é executada em Assembly AVR no microcontrolador ATmega328P, com frequência definida no código como \(16\,\mathrm{MHz}\). Além da iluminação, há dois displays de sete segmentos acionados por sinais BCD e uma saída serial que informa a situação de cada semáforo.
 
-\subsection{Fluxo geral de execucao}
+A implementação utiliza três mecanismos de interrupção: o Timer1 controla a duração dos estados e a contagem regressiva; o Timer0 alterna rapidamente os dois displays; e a USART transmite cada caractere quando o registrador de dados está disponível. As configurações dos LEDs, os tempos e as mensagens ficam em tabelas na memória Flash.
+
+\subsection{Fluxo geral de execução}
 \begin{enumerate}
-    \item O \texttt{reset} configura pilha, portas, Timer1 e USART.
-    \item O codigo carrega o estado inicial e seus parametros da Flash.
-    \item A interrupcão do Timer1 controla a passagem dos estados.
-    \item A interrupcão USART UDRE transmite o status caractere por caractere.
-    \item O \texttt{loop} principal permanece ocioso.
+\item O vetor de reset desvia para \subrot{reset}, que prepara a pilha e inicializa as variáveis de controle.
+\item São configuradas a USART e as direções de entrada/saída das portas; depois são carregados LEDs, texto serial e duração do primeiro estado.
+\item Os displays recebem inicialmente os dígitos 4 e 6. Timer1 e Timer0 são configurados, e \reg{sei} habilita as interrupções globais.
+\item O Timer0 multiplexa os dígitos; o Timer1 atualiza a contagem regressiva, avança os estados e alterna o LED vermelho de pedestres no estado correspondente.
+\item A USART envia o status por interrupções \reg{UDRE}. O laço principal não consulta flags e apenas permanece em espera.
 \end{enumerate}
+\begin{lstlisting}
+reset:
+    ; inicializacoes e carregamentos
+    rcall init_timer
+    rcall init_timer0
+    sei
+loop:
+    jmp loop
+\end{lstlisting}
 
 \section{Registradores e constantes}
-Atualmente temos os registradores \texttt{state\_count}, \texttt{count\_aux}, \texttt{serial\_low}, \texttt{serial\_high}, \texttt{temp} e \texttt{temp2}.
-\begin{longtable}{|>{\raggedright\arraybackslash}p{4cm}|p{9cm}|}
-\hline
-\textbf{Nome} & \textbf{Funcao no programa} \\ \hline
-\texttt{state\_count} & Indica o estado atual (0 a 11). \\ \hline
-\texttt{count\_aux} & Conta as repeticoes do periodo do Timer1. \\ \hline
-\texttt{serial\_low / serial\_high} & Guardam o endereco do proximo caractere a transmitir. \\ \hline
-\texttt{temp / temp2} & Registradores auxiliares. \\ \hline
+Os nomes definidos por \reg{.def} representam registradores físicos de uso geral do AVR, não posições de RAM alocadas dinamicamente.
+\begin{longtable}{|>{\raggedright\arraybackslash}p{3.6cm}|>{\raggedright\arraybackslash}p{9.1cm}|}
+\hline\textbf{Nome / registrador} & \textbf{Função no programa} \\ \hline
+\endfirsthead
+\hline\textbf{Nome / registrador} & \textbf{Função no programa} \\ \hline
+\endhead
+\reg{state\_count} / r16 & Índice do estado atual, de 0 até 11. \\ \hline
+\reg{serial\_high} / r17 & Byte alto do endereço, em bytes, do próximo caractere serial. \\ \hline
+\reg{serial\_low} / r18 & Byte baixo do endereço da mensagem serial. \\ \hline
+\reg{temp} / r19 & Auxiliar para máscaras, endereçamento e acesso aos periféricos. \\ \hline
+\reg{temp2} / r20 & Auxiliar para bits dos LEDs e envio dos dígitos BCD. \\ \hline
+\reg{count\_aux} / r21 & Número de interrupções de Timer1 ainda restantes, usando o valor da tabela menos um. \\ \hline
+\reg{dezena} / r22 & Dígito decimal das dezenas mostrado no display. \\ \hline
+\reg{unidade} / r23 & Dígito decimal das unidades mostrado no display. \\ \hline
+\reg{display\_select} / r24 & Alterna entre 0 e 1 para escolher o display multiplexado. \\ \hline
+\reg{s1count} / r25 & Conta duas interrupções de 0,5 s para formar um segundo. \\ \hline
 \end{longtable}
 
-\section{Inicializacao no \texttt{reset}}
-\subsection{Pilha e interrupcoes}
-Iniciamos a pilha para podermos trabalhar com subrotinas e ligamos as interrupções globais para que as interrupções do timer e serial possam ser tratadas.
+\subsection{Constantes gerais}
+\reg{state\_limit = 12} determina a quantidade de estados; \reg{s1\_limit = 2} indica que dois eventos de Timer1 equivalem a um segundo. As constantes \reg{d46/u46}, \reg{d64/u64} e \reg{d75/u75} guardam pares de dígitos (46, 64 e 75), carregados em situações determinadas pelo programa. \reg{CLOCK} define a frequência de 16 MHz usada nos cálculos de temporização e da USART.
+
+\section{Inicialização no \texttt{reset}}
+\subsection{Pilha e interrupções}
+A pilha deve existir antes de qualquer \reg{rcall}, \reg{push} ou interrupção, pois esses mecanismos salvam endereços de retorno ou registradores. O programa escreve o endereço final da SRAM, \reg{RAMEND}, nos registradores \reg{SPH} e \reg{SPL}. Depois inicializa os contadores e configura os periféricos. O \reg{sei} só aparece ao final, evitando que uma interrupção ocorra durante a configuração incompleta.
 \begin{lstlisting}
 ldi temp, high(RAMEND)
 out SPH, temp
 ldi temp, low(RAMEND)
 out SPL, temp
-; ... configuracoes ...
-sei
+clr state_count
+clr display_select
+clr s1count
 \end{lstlisting}
-Vale salientar que \textbf{\texttt{sei}} que habilita as interrupções globais.
+A sequência atual configura primeiro a USART e as portas com \reg{init\_uart} e \reg{init\_ports}. Depois chama \reg{charge\_leds}, \reg{charge\_serial} e \reg{charge\_runtimes}. Por fim, carrega 46 nos dígitos e executa as inicializações de Timer1 e Timer0.
 
-\subsection{Configuracao das portas}
-Aqui estamos configurando as saídas das portas DDRB, DDRC e DDRD da seguinte forma:
-\begin{longtable}{|>{\raggedright\arraybackslash}p{4cm}|p{9cm}|}
-\hline
-\textbf{Saída} & \textbf{Bits} \\ \hline
-\texttt{Semaforo 1} & 0 - 2 da porta B \\ \hline
-\texttt{Semaforo 2} & 3 - 5 da porta B \\ \hline
-\texttt{Semaforo 3} & 0 - 2 da porta C \\ \hline
-\texttt{Semaforo 4} & 3 - 5 da porta C \\ \hline
-\texttt{Semaforo 5} & 2 - 3 da porta D \\ \hline
-\texttt{Serial TX} & 1 da porta D \\ \hline
-\end{longtable}
+\subsection{Configuração das portas}
 \begin{lstlisting}
 ldi temp, $3F
 out DDRB, temp
@@ -101,104 +97,223 @@ out DDRC, temp
 ldi temp, $FD
 out DDRD, temp
 \end{lstlisting}
-Na porta B e C foram configurados 6 bits como saída (0 - 5) e na porta D foram configurados todos os bits como saída, exceto o bit 1 (TX) que é usada pela USART para transmitir os dados.
+\reg{DDRB = 0x3F} e \reg{DDRC = 0x3F} configuram como saída os bits 0 a 5 das portas B e C. \reg{DDRD = 0xFD} configura PD0 e PD2--PD7 como saídas, deixando PD1 sob controle da USART para transmissão. O significado dos pinos no projeto é:
+\begin{center}
+\begin{tabular}{ll}
+\toprule \textbf{Pinos} & \textbf{Destino}\\ \midrule
+PB0--PB2 & S1: verde, amarelo, vermelho\\
+PB3--PB5 & S2: verde, amarelo, vermelho\\
+PC0--PC2 & S3: verde, amarelo, vermelho\\
+PC3--PC5 & S4: verde, amarelo, vermelho\\
+PD6--PD7 & S5: verde e vermelho\\
+PD2--PD5 & Quatro linhas BCD dos displays\\
+PD0 & Seleção entre os displays\\
+PD1 & TX da USART\\ \bottomrule
+\end{tabular}
+\end{center}
+Os dois displays compartilham as linhas BCD. Apenas o sinal de seleção determina qual recebe o valor enviado naquele instante. A polaridade real depende do inversor/transistores usados na montagem.
 
 \section{Tabela de estados dos LEDs na Flash}
-\objetivo{Explique os \texttt{.equ} para cada luz, a palavra de 16 bits de cada estado (\texttt{.dw}) e como os 14 bits representam os LEDs.}
+As diretivas \reg{.equ} associam cada LED a uma posição de bit. Por exemplo, \reg{S1\_G = (1 << 0)} representa o verde do primeiro semáforo e \reg{S1\_Y = (1 << 1)} representa o amarelo. Os 14 sinais ocupam os bits de 0 a 13 de uma palavra de 16 bits; os bits 14 e 15 não são usados.
 \begin{lstlisting}
 .equ S1_G = (1 << 0)
 .equ S1_Y = (1 << 1)
 .equ S1_R = (1 << 2)
-; ... outros semaforos ...
+; ... ate S5_G (bit 12) e S5_R (bit 13)
 mapeamento:
     .dw S1_R|S2_R|S3_R|S4_R|S5_R
     .dw S1_R|S2_R|S3_R|S4_R|S5_G
 \end{lstlisting}
-\noindent\textbf{O que representa o bit 1?} \preencher
+Cada \reg{.dw} armazena uma palavra com as luzes ativas naquele estado. O operador \reg{|} combina as máscaras. Se o bit de uma luz vale 1, aquela saída será acionada; se vale 0, ficará desativada. Em particular, o \textbf{bit 1} representa \reg{S1\_Y}, o LED amarelo do semáforo 1.
 
 \subsection{Subrotina \texttt{charge\_leds}}
-\objetivo{Descreva: calculo de \texttt{state\_count * 2}, leitura dos dois bytes com \texttt{LPM}, mascaras, deslocamentos e distribuicao entre PORTB/PORTC/PORTD.}
-\preencher
-
-\section{Temporizacao com Timer1}
-\subsection{Modo CTC, clock e prescaler}
-\objetivo{Explique a frequencia de 16 MHz, o prescaler 1024, o modo CTC e o papel do registrador OCR1A.}
-\[
-T = \frac{(\mathrm{OCR1A}+1)\cdot \mathrm{prescaler}}{f_{\mathrm{CPU}}}
-\]
-\noindent\textbf{Exemplo com TOP = 15624:} \preencher
-
-\subsection{Tabelas \texttt{tops} e \texttt{qtd\_runs}}
-\objetivo{Mostre por que o mesmo estado pode precisar de varias comparacoes do Timer1 para durar mais que o periodo programado em OCR1A.}
+\begin{enumerate}
+\item Z aponta para o início de \reg{mapeamento} em Flash. O \reg{<< 1} transforma o endereço em palavras usado pelo montador em endereço em bytes, exigido por \reg{lpm}.
+\item \reg{state\_count} é multiplicado por dois com \reg{lsl}, porque cada estado ocupa dois bytes. \reg{add} e \reg{adc} ajustam os bytes baixo e alto de Z, incluindo eventual transporte.
+\item \reg{lpm temp, Z+} lê o primeiro byte; \reg{lpm temp2, Z} lê o segundo. A máscara \reg{0x3F} seleciona os seis bits enviados a \reg{PORTB}.
+\item Dois pares \reg{lsl temp}/\reg{rol temp2} deslocam o conjunto de 16 bits duas posições para a esquerda. Os seis bits baixos de \reg{temp2} passam então a representar as luzes destinadas à \reg{PORTC}.
+\item \reg{andi temp2, 0xC0} conserva os dois bits restantes, que correspondem a PD6 e PD7. A rotina lê \reg{PORTD}, preserva PD0--PD5 com \reg{0x3F} e combina o resultado com esses dois LEDs antes de escrever novamente.
+\end{enumerate}
 \begin{lstlisting}
-tops:
-    .dw 15624
-    .dw 62499
-    ; ...
-qtd_runs:
-    .db 0, 2, 8, 0, 10, 0, 0, 14, 0, 0, 9, 0
+lpm temp, Z+
+lpm temp2, Z
+push temp
+andi temp, $3F
+out PORTB, temp
+pop temp
+lsl temp
+rol temp2
+lsl temp
+rol temp2
+; ... PORTC, mascara $C0 e escrita em PORTD
 \end{lstlisting}
-\preencher
+Dessa maneira o desenho lógico de cada estado é mantido em Flash, e a rotina apenas o converte para as portas físicas.
 
-\subsection{Interrupcao \texttt{OCI1A\_Interrupt}}
-\objetivo{Explique quando decrementa \texttt{count\_aux}, quando incrementa \texttt{state\_count}, quando recarrega OCR1A e como o LED de pedestres pisca com \texttt{sbi PIND,3}.}
-\preencher
-
-\section{Comunicacao serial USART}
-\subsection{Configuracao de 9600 baud e 8N1}
-\objetivo{Explique UBRR0H/L, TXEN0, UCSR0C e o pino PD1 (TX).}
+\section{Temporização com Timer1}
+\subsection{Modo CTC, clock e prescaler}
+Timer1 possui 16 bits e opera em CTC: o contador é comparado com \reg{OCR1A}, e a comparação gera um evento de interrupção. O código usa \(f_{CPU}=16\,\mathrm{MHz}\), prescaler 256 e período solicitado de 500 ms.
 \[
-\mathrm{UBRR} \approx \frac{f_{\mathrm{CPU}}}{16\cdot\mathrm{baud}}-1
+T_1=\frac{(\mathrm{OCR1A}+1)\cdot 256}{16\,000\,000}.
 \]
-\preencher
+Logo, \(\mathrm{TOP}=\frac{16\,000\,000\cdot 0{,}5}{256}-1=31\,249\), dentro da faixa de 16 bits. O valor é separado em \reg{high(TOP)} e \reg{low(TOP)} e escrito em \reg{OCR1AH} e \reg{OCR1AL}.
+
+\reg{TCCR1A} e \reg{TCCR1B} ativam o modo \reg{WGM=0b0100}; os bits \reg{CS12:CS10=100} selecionam o prescaler 256. \reg{OCIE1A} em \reg{TIMSK1} habilita a interrupção de comparação A. A constante \reg{TOP} é fixa nesta versão: a rotina não recalcula nem recarrega \reg{OCR1A} a cada estado.
+
+\subsection{Tabela \texttt{qtd\_runs}}
+A versão atual não possui uma tabela \reg{tops}: todos os estados usam a mesma interrupção de 0,5 s. A duração muda pela quantidade de eventos contados em \reg{count\_aux}.
+\begin{lstlisting}
+qtd_runs:
+    .db 1, 23, 7, 3, 43, 7, 1, 119, 7, 1, 49, 7
+\end{lstlisting}
+Ao carregar um estado, \reg{charge\_runtimes} lê o byte na posição \reg{state\_count} com \reg{lpm count\_aux, Z}. Como a interrupção testa o zero \emph{antes} de decrementar, um valor inicial \(n\) resulta em \(n+1\) interrupções no estado. Exemplo: valor 23 corresponde a 24 eventos de 0,5 s, isto é, 12 s.
+
+\subsection{Interrupção \texttt{OCI1A\_Interrupt}}
+A cada 0,5 s, o Timer1 executa duas tarefas interligadas. Primeiro incrementa \reg{s1count} para acompanhar os segundos dos displays; depois trata a duração do estado atual. Quando \reg{s1count = 2}, a unidade diminui em um. Se a unidade já for zero, a dezena diminui e a unidade recebe 9, produzindo, por exemplo, a passagem de 40 para 39. \reg{s1count} é zerado nos caminhos de decrementação.
+\begin{lstlisting}
+inc s1count
+cpi s1count, s1_limit
+brne continua
+tst unidade
+breq decrementa_dezena
+; ... decrementa unidade ou dezena
+\end{lstlisting}
+Em seguida, se \reg{count\_aux} ainda não for zero, ele é decrementado. No estado de índice 2 (terceiro estado), \reg{sbi PIND,7} inverte o nível de PD7 a cada 0,5 s, produzindo o pisca-pisca vermelho dos pedestres. A escrita de 1 em um bit de \reg{PIND} alterna o bit correspondente da saída \reg{PORTD} no ATmega328P.
+
+Quando \reg{count\_aux} já está em zero no início da interrupção, \reg{state\_count} é incrementado e volta a zero ao atingir 12. A nova configuração dos LEDs e a mensagem serial são carregadas, o contador \reg{TCNT1} é zerado e \reg{charge\_runtimes} prepara a duração do próximo estado. Nos índices 7 e 9, o código também carrega pares de dígitos específicos (64 e 75) e reinicia \reg{s1count}.
+
+\paragraph{Comportamento particular desta versão.} Quando dezena e unidade são zero, o fluxo desvia para \reg{continua} sem zerar \reg{s1count}. Por isso, após chegar a 00, esse contador pode ultrapassar 2 e só voltará a ser zerado quando um dos pares de dígitos for recarregado. Isso é um detalhe de implementação a considerar em futuros ajustes, não uma alteração aplicada à documentação.
+
+\section{Multiplexação dos displays com Timer0}
+\subsection{Tempo e modo CTC}
+Timer0 possui 8 bits, logo \reg{OCR0A} comporta valores entre 0 e 255. O programa define \reg{delay0=2} ms, prescaler 1024 e \reg{WGM0=0b10}, correspondendo ao modo CTC. O cálculo inteiro produz \(\mathrm{TOP0}=30\):
+\[
+\mathrm{TOP0}=\operatorname{int}\!\left(\frac{16\,000\,000\cdot2}{1024\cdot1000}-1\right)=30,
+\quad T_0=\frac{(30+1)\cdot1024}{16\,000\,000}=1{,}984\,\mathrm{ms}.
+\]
+Portanto, nesta versão a alternância acontece aproximadamente a cada 1,984 ms, \textbf{não} a cada 5 ms, apesar de um comentário antigo dizer 5 ms.
+
+\subsection{Inicialização e vetor}
+\subrot{init\_timer0} grava 30 em \reg{OCR0A}, habilita \reg{OCIE0A} em \reg{TIMSK0}, configura \reg{TCCR0A} para CTC e ativa o clock dividido por 1024 em \reg{TCCR0B}. O vetor \reg{OC0Aaddr} desvia para \subrot{TIMER0\_Interrupt}. A interrupção usa \reg{display\_select} e não interfere diretamente na contagem de estados do Timer1.
+\begin{lstlisting}
+ldi temp, TOP0
+out OCR0A, temp
+lds temp, TIMSK0
+ori temp, (1 << OCIE0A)
+sts TIMSK0, temp
+ldi temp, (WGM0 << WGM00)
+out TCCR0A, temp
+ldi temp, (prescale0 << CS00)
+out TCCR0B, temp
+\end{lstlisting}
+
+\subsection{Interrupção \texttt{TIMER0\_Interrupt}}
+O \reg{eor display\_select, temp}, com \reg{temp=1}, alterna somente o bit menos significativo do seletor. Quando ele vale 1, a rotina coloca PD0 em 1 e copia a dezena para \reg{temp2}. Quando vale zero, limpa PD0 e copia a unidade. Em ambos os casos chama \subrot{charge\_display}; ao final, restaura os registradores e retorna com \reg{reti}.
+\begin{lstlisting}
+ldi temp, 1
+eor display_select, temp
+in temp, PORTD
+tst display_select
+breq mostra_unidade
+; mostra_dezena: PD0=1, temp2=dezena
+; mostra_unidade: PD0=0, temp2=unidade
+\end{lstlisting}
+Cada display é selecionado uma vez a cada dois eventos, ou aproximadamente a cada 3,968 ms (cerca de 252 atualizações por segundo por display, no relógio ideal configurado).
+
+\subsection{Subrotina \texttt{charge\_display}}
+A máscara binária \reg{11000011} preserva os bits PD7, PD6, PD1 e PD0, apagando os bits PD2--PD5. Duas instruções \reg{lsl temp2} deslocam o dígito BCD quatro fios para as posições PD2--PD5; depois \reg{or} une o BCD aos demais pinos e \reg{out PORTD,temp} atualiza o hardware.
+\begin{lstlisting}
+charge_display:
+    andi temp, 0b11000011
+    lsl temp2
+    lsl temp2
+    or temp, temp2
+    out PORTD, temp
+    ret
+\end{lstlisting}
+A multiplexação apresenta alternadamente dezenas e unidades por um único barramento BCD. É necessário que o circuito externo ligue um display e desligue o outro conforme o nível de PD0.
+
+\section{Comunicação serial USART}
+\subsection{Configuração de 9600 baud e 8N1}
+A USART trabalha em modo assíncrono, sem paridade, com 8 bits de dados e 1 bit de parada (8N1). A taxa nominal é 9600 baud, com divisão normal por 16:
+\[
+\mathrm{UBRR}=\operatorname{int}\left(\frac{16\,000\,000}{16\cdot9600}-1\right)=103.
+\]
+\reg{init\_uart} escreve o valor em \reg{UBRR0H/UBRR0L}, configura \reg{UCSR0C} com \reg{UCSZ01=1} e \reg{UCSZ00=1} e liga \reg{TXEN0} em \reg{UCSR0B}. O sinal de saída é TX no pino PD1. O programa transmite, mas não habilita recepção serial.
 
 \subsection{Mensagens e ponteiros na Flash}
-\objetivo{Explique por que as mensagens terminam com zero; para que servem CR=13 e LF=10; e como \texttt{serial\_mensage} guarda os enderecos de \texttt{msg1}, \texttt{msg2}, etc.}
+Existem 12 mensagens, \reg{msg1} a \reg{msg12}, descrevendo em texto a cor de S1 a S5. Cada texto é gravado por \reg{.db} e termina com o byte nulo 0, que marca seu fim. Os números 13 (CR) e 10 (LF) produzem quebras de linha no terminal. A tabela \reg{serial\_mensage} possui 12 entradas \reg{.dw}, cada uma contendo o endereço de uma mensagem.
 \begin{lstlisting}
 msg1:
-    .db "S1: Vermelho; S2: Vermelho; ...", 13, 10, 0
+    .db "S1: Vermelho", 13, 10, ... , 0, 0
 serial_mensage:
     .dw msg1
     .dw msg2
-    ; ...
+    ; ... ate msg12
 \end{lstlisting}
-\preencher
+Em AVRASM, rótulos de código/Flash usados nessa tabela são endereços de palavra; a leitura de bytes posterior usa a conversão adequada.
 
 \subsection{Subrotina \texttt{charge\_serial}}
-\objetivo{Mostre como o estado seleciona o endereco da mensagem e como habilitar UDRIE0 inicia o envio por interrupcao.}
-\preencher
+A subrotina posiciona Z no início da tabela de endereços, multiplica \reg{state\_count} por dois para selecionar a entrada de 16 bits e carrega os dois bytes do ponteiro em \reg{serial\_low} e \reg{serial\_high}. Depois desloca o ponteiro de palavra para byte com \reg{lsl}/\reg{rol} e ativa \reg{UDRIE0} em \reg{UCSR0B}. Essa habilitação inicia o envio por interrupção quando \reg{UDR0} estiver vazio.
 
-\subsection{Interrupcao \texttt{USART\_UDRE\_Interrupt}}
-\objetivo{Explique por que cada chamada envia apenas um caractere, o papel de \texttt{LPM}, \texttt{TST}, \texttt{UDR0}, \texttt{RETI} e por que desabilitar UDRIE0 ao chegar no byte zero.}
-\preencher
+\subsection{Interrupção \texttt{USART\_UDRE\_Interrupt}}
+A interrupção copia \reg{serial\_low/high} para Z, lê um caractere da Flash com \reg{lpm temp,Z+} e salva o endereço atualizado. \reg{tst temp} verifica se o byte lido é zero: caso positivo, \reg{UDRIE0} é desabilitado, impedindo interrupções desnecessárias. Caso contrário, o byte é escrito em \reg{UDR0}, para transmissão. Assim, cada interrupção transfere um caractere, e a USART chama a rotina novamente quando pode receber outro.
+\begin{lstlisting}
+lpm temp, Z+
+tst temp
+breq fim_serial
+sts UDR0, temp
+; ...
+fim_serial:
+    lds temp, UCSR0B
+    andi temp, ~(1 << UDRIE0)
+    sts UCSR0B, temp
+\end{lstlisting}
 
-\section{Protecao dos registradores nas interrupcoes}
-\objetivo{Explique \texttt{push}, \texttt{pop}, salvamento de SREG e por que a ordem de restauracao e inversa a de salvamento.}
-\preencher
+\section{Proteção dos registradores nas interrupções}
+Uma interrupção pode ocorrer durante a execução de outra parte do programa. Para não destruir valores em uso, a rotina salva com \reg{push} os registradores auxiliares e o \reg{SREG} (que contém flags como Zero e Carry). A restauração usa \reg{pop} na ordem inversa, respeitando o funcionamento LIFO da pilha. A instrução \reg{reti} retorna da interrupção e restabelece a aceitação normal de novas interrupções.
 
-\section{Sequencia dos 12 estados}
-\objetivo{Preencha os tempos totais e descreva as cores em cada estado.}
-\begin{longtable}{|c|p{4cm}|p{4cm}|p{3cm}|}
-\hline
-\textbf{Estado} & \textbf{LEDs / cores} & \textbf{Tempo / repeticoes} & \textbf{Mensagem serial} \\ \hline
-1 & Todos vermelhos & 1 s & \texttt{msg1} \\ \hline
-2 & Pedestres verde; demais vermelhos & 3 periodos de 4 s & \texttt{msg2} \\ \hline
-3 & Pedestres vermelho piscando & Verificar contagem de 0,5 s & \texttt{msg3} \\ \hline
-4--12 & \preencher & \preencher & \texttt{msg4} a \texttt{msg12} \\ \hline
+Na \reg{USART\_UDRE\_Interrupt} são protegidos \reg{temp}, \reg{SREG}, \reg{ZH} e \reg{ZL}. Na \reg{TIMER0\_Interrupt} são protegidos \reg{temp}, \reg{SREG} e \reg{temp2}. Na \reg{OCI1A\_Interrupt} também são preservados os dois registradores Z, já que as rotinas de carregamento os utilizam. Registros como \reg{state\_count}, \reg{s1count}, \reg{dezena} e \reg{unidade} não são restaurados porque a atualização deles faz parte do resultado desejado da interrupção.
+
+\section{Sequência dos 12 estados}
+A tabela abaixo deriva diretamente das entradas de \reg{mapeamento} e \reg{qtd\_runs}. As durações são calculadas por \((\text{valor da tabela}+1)\times0{,}5\,\mathrm{s}\). A notação V/A/R significa verde/amarelo/vermelho e S5 representa pedestres.
+\small
+\begin{longtable}{|c|>{\raggedright\arraybackslash}p{7.1cm}|c|c|}
+\hline \textbf{Estado} & \textbf{Cores acionadas} & \textbf{Tempo} & \textbf{Serial}\\\hline
+\endfirsthead
+\hline \textbf{Estado} & \textbf{Cores acionadas} & \textbf{Tempo} & \textbf{Serial}\\\hline
+\endhead
+1 & S1--S5: R & 1 s & msg1 \\\hline
+2 & S1--S4: R; S5: V & 12 s & msg2 \\\hline
+3 & S1--S4: R; S5: R piscante & 4 s & msg3 \\\hline
+4 & S1--S5: R & 2 s & msg4 \\\hline
+5 & S1: V; S2: V; S3--S5: R & 22 s & msg5 \\\hline
+6 & S1: V; S2: A; S3--S5: R & 4 s & msg6 \\\hline
+7 & S1: V; S2--S5: R & 1 s & msg7 \\\hline
+8 & S1: V; S2: R; S3: R; S4: V; S5: R & 60 s & msg8 \\\hline
+9 & S1: A; S2: R; S3: R; S4: A; S5: R & 4 s & msg9 \\\hline
+10 & S1--S5: R & 1 s & msg10 \\\hline
+11 & S1: R; S2: R; S3: V; S4: R; S5: R & 25 s & msg11 \\\hline
+12 & S1: R; S2: R; S3: A; S4: R; S5: R & 4 s & msg12 \\\hline
 \end{longtable}
+\normalsize
+O ciclo dos 12 estados totaliza \textbf{140 s} (2 min e 20 s), considerando o clock ideal e as durações configuradas. O LED S5 vermelho é alternado por software no terceiro estado, apesar de a máscara base desse estado indicar vermelho acionado.
 
-\section{Testes na simulacao e montagem fisica}
-\objetivo{Registre a frequencia configurada, a ligacao PD1 (TX) ao RX do terminal, a taxa 9600, os estados verificados e eventuais problemas.}
+\subsection{Comportamento específico da contagem exibida}
+O programa começa exibindo 46. Ao entrar no estado de índice 7 (estado 8), carrega 64; ao entrar no índice 9 (estado 10), carrega 75. Fora desses pontos, o Timer1 continua decrementando os mesmos dois registradores uma vez por segundo, quando o contador intermediário alcança 2. Assim, o valor do display não é reiniciado a cada mudança de estado. Os números 46, 64 e 75 são valores de programação encontrados na versão enviada e não devem ser confundidos automaticamente com a duração de cada estado da tabela.
+
+\section{Testes na simulação e montagem física}
 \begin{itemize}
-    \item \textbf{Clock usado:} \preencher
-    \item \textbf{Ligacao serial:} \preencher
-    \item \textbf{Comportamento dos LEDs:} \preencher
-    \item \textbf{Mensagens recebidas:} \preencher
-    \item \textbf{Erros encontrados e solucoes:} \preencher
+\item \textbf{Clock configurado:} 16 MHz, tanto no cálculo das interrupções quanto no divisor da USART. É necessário conferir se a frequência efetiva do ATmega328P no SimulIDE ou na placa coincide com essa configuração.
+\item \textbf{Serial:} taxa 9600, formato 8N1; PD1 (TX) deve ser ligado ao RX do terminal, com referência de terra compartilhada.
+\item \textbf{LEDs:} confirmar os 12 padrões de cores, especialmente o pisca-pisca de S5 durante o estado 3, e comparar as transições com a tabela de tempos.
+\item \textbf{Displays:} conferir as quatro linhas BCD PD2--PD5, a seleção PD0 e o funcionamento dos transistores/inversor. O Timer0 atualiza o seletor aproximadamente a cada 1,984 ms.
+\item \textbf{Mensagens:} conferir se o texto de cada \reg{msg1}--\reg{msg12} aparece na mudança correspondente de estado, sem caracteres extras.
+\item \textbf{Validação:} este documento descreve o código fornecido. Não constitui comprovação de compilação bem-sucedida, teste físico completo ou medição real da temporização.
 \end{itemize}
+\subsection{Observações de revisão do código}
+A análise identificou diferenças entre alguns comentários e o código executável: o comentário de Timer0 menciona 5 ms, mas \reg{delay0=2}; os comentários sobre prescaler em Timer1 citam \reg{0b101} em um trecho, embora a configuração efetiva seja \reg{0b0100}; e a tabela atual não usa mais \reg{tops}. Esses pontos foram descritos conforme as instruções efetivas, sem alterar o arquivo Assembly original. Uma verificação futura também deve observar que \reg{s1count} não é zerado no caminho em que ambos os dígitos já são zero.
 
-\section{Conclusao}
-\objetivo{Resuma como tabelas em Flash e interrupcoes permitem controlar os semaforos e transmitir o status sem consulta repetitiva de flags no loop principal.}
-\preencher
+\section{Conclusão}
+O programa organiza o cruzamento como uma máquina de 12 estados. Cada estado é representado de forma compacta por uma palavra de 16 bits na Flash, enquanto outra tabela determina sua duração em eventos de 0,5 s. Timer1 faz a progressão dos semáforos e a contagem regressiva; Timer0 mantém os displays atualizados por multiplexação; e a USART envia textos de status sem consulta constante a flags no laço principal. A separação entre inicialização, tratamento de interrupções, rotinas de carregamento e tabelas facilita manutenção e depuração.
 
 \end{document}
