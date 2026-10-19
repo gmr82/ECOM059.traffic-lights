@@ -10,29 +10,30 @@
     push TL
     in TL, SREG
     push TL
+    push TH
 .endmacro
 
 .macro POP_CONTEXT
+    pop TH
     pop TL
     out SREG, TL
     pop TL
 .endmacro
 
 ; registers definition
-.def TL             = r16   ; temporário low
-.def TH             = r17   ; temporário high
-.def current_state  = r18   ; guarda o indice do estado atual (0, 1, 2...)
-.def next_state     = r19   ; guarda qual será o proximo estado
-.def ticks_left     = r20   ; contador de tempo decremental do estado
-.def bcd_cmd        = r21   ; comando atual do bcd {otimizar}
+.def TL             = R16   ; temporário low
+.def TH             = R17   ; temporário high
+.def current_state  = R18   ; guarda o indice do estado atual (0, 1, 2...)
+.def next_state     = R19   ; guarda qual será o proximo estado
+.def ticks_left     = R20   ; contador de tempo decremental do estado
+.def bcd_cmd        = R21   ; comando atual do bcd {otimizar}
 
 ; multiplexing registers
-.def mux_flag       = r22   ; controla de quem e a vez (0=tens, 1=units)
-.def bcd_tens       = r23   ; guarda o digito da dezena  ¿ dividir p/ usar apenas um registrador 4b+4b ?
-.def bcd_units      = r24   ; guarda o digito da unidade
+.def mux_flag       = R22   ; controla de quem e a vez (0=tens, 1=units) {otimizar}
+.def bcd_data       = R23   ; guarda dígitos: [dddd,uuuu]
 
-; .def blink_divider  = r25   ; conta até 144 para dar os 500ms (288Hz)
-; .def blink_flags    = r28   ; registador unificado p/ flags de pisca
+; .def blink_divider  = R24   ; conta até 144 para dar os 500ms (288Hz)
+; .def blink_flags    = R28   ; registador unificado p/ flags de pisca
 
 ; mux pin definitions
 .equ MUX_PORT       = PORTD
@@ -44,17 +45,25 @@
 .equ TOP_144HZ      = 216   ; 16MHz / (256 * 288Hz) - 1 (Timer0) TOP = (16.000.000 / (256 * 288)) - 1 = 216
 
 ;=============================================================================
+; DATA SEGMENT (SRAM)
+;=============================================================================
+.dseg
+.org SRAM_START
+    tx_ptr: .byte 2     ; Reserva 2 bytes na SRAM para o ponteiro de envio da UART
+;   ~
+.cseg
+;=============================================================================
 ; VECTOR TABLE
 ;=============================================================================
 .org 0x0000
     rjmp RESET
-
+;   ~
 .org OC1Aaddr                   ; interrupcao do timer1 (states) [0x0016]
     rjmp TIMER1_COMPA_ISR
-    
+;   ~
 .org OC0Aaddr                   ; interrupcao do timer0 (mux) [0x001C]
     rjmp TIMER0_COMPA_ISR
-
+;   ~
 .org UDREaddr                   ; interrupção de buffer UART vazio [0x0026]
     rjmp UART_UDRE_ISR
 ;   ~
@@ -200,8 +209,10 @@ LOAD_STATE:
     out PORTD, TH 
 
     ; lê o endereço da string (2 bytes) diretamente para o ponteiro nativo X
-    lpm XL, Z+
-    lpm XH, Z+
+    lpm TL, Z+
+    sts tx_ptr, TL
+    lpm TL, Z+
+    sts tx_ptr+1, TL
 
     ; lê as variáveis de controle
     lpm next_state, Z+
@@ -216,18 +227,29 @@ LOAD_STATE:
 ; SUBROUTINE: EXTRACT DIGITS (DECIMAL TO BCD)
 ;=============================================================================
 EXTRACT_DIGITS:
-    mov TL, ticks_left    
-    clr bcd_tens
+    ; calcula a dezena: (ticks_left * 205) / 2048
+    mov TL, ticks_left
+    ldi TH, 205
+    mul TL, TH          ; R0:R1 = ticks_left * 205
 
-DIV_LOOP:
-    cpi TL, 10          
-    brlo DIV_END            
-    subi TL, 10          
-    inc bcd_tens         
-    rjmp DIV_LOOP          
+    ; o byte mais significativo (R1) já tem o resultado de (ticks_left * 205) / 256
+    mov bcd_data, R1
 
-DIV_END:
-    mov bcd_units, TL   
+    ; últimos 3 bits de shift para completar a divisão por 2048 (256 * 8)
+    lsr bcd_data        ; divide por 2
+    lsr bcd_data        ; divide por 4
+    lsr bcd_data        ; divide por 8 (dezena final pronta)
+
+    ; calcula a unidade: ticks_left - (dezena * 10)
+    ldi TH, 10
+    mul bcd_data, TH    ; R0:R1 = dezena * 10 (cabe em R0, pois max é 9*10=90)
+    
+    sub TL, R0          ; TL = ticks_left original - (dezena * 10)
+    
+    swap bcd_data       ; passa a dezena pros 4 bits alto (0x43 -> 0x34)
+    or bcd_data, TL     ; joga a unidade nos 4 bits baixos
+
+    clr R1
     ret
 ;   ~
 
@@ -247,23 +269,17 @@ UPDATE_BCD:
     ;cpi bcd_cmd, 1          
     ;breq BCD_COUNTDOWN
     ret                     
-
+;   ~
 BCD_OFF:
-    ldi TL, 15            ; O valor 15 (0b1111) força o BCD a desligar os LEDs
-    mov bcd_tens, TL
-    mov bcd_units, TL
+    ldi TL, 0xFF            ; O valor 15 (0b1111) força o BCD a desligar os LEDs
+    mov bcd_data, TL
+    ldi TL, 15
     rjmp BCD_APPLY          ; aplica imediatamente
-
-; BCD_COUNTDOWN:
-;     ; mov TL, ticks_left
-;     ; ldi TL, $FF
-;     rjmp BCD_APPLY
-
+;   ~
 BCD_ZERO:
-    clr TL                
-    clr bcd_tens
-    clr bcd_units
-
+    clr bcd_data               
+    clr TL
+;   ~
 BCD_APPLY:
     ; move o valor numerico para os bits 2~5
     lsl TL                
@@ -293,33 +309,35 @@ TIMER0_COMPA_ISR:
 
     sbrc mux_flag, 0        
     rjmp MUX_UNITS
-
+;   ~
 MUX_TENS:
-    ; troca o transístor PRIMEIRO (enquanto o BCD está apagado)
+    ; troca o transístor (enquanto o BCD está apagado)
     sbi MUX_PORT, MUX_PIN   
     
-    ; envia o número da dezena DEPOIS
-    mov TL, bcd_tens
+    ; envia o número da dezena
+    mov TL, bcd_data
+    swap TL                 ; move a dezena do nible alto p/ o baixo
+    andi TL, 0x0F           ; máscara: zera o nible alto
     rcall BCD_APPLY
-
-    ; prepara para a próxima rodada
-    ldi TL, 1
-    mov mux_flag, TL
-    rjmp TIMER0_EXIT
-
+    rjmp TIMER0_TOGGLE
+;   ~
 MUX_UNITS:
-    ; troca o transístor PRIMEIRO (enquanto o BCD está apagado)
+    ; troca o transístor (enquanto o BCD está apagado)
     cbi MUX_PORT, MUX_PIN   
 
-    ; envia o número da unidade DEPOIS
-    mov TL, bcd_units
+    ; envia o número da unidade
+    mov TL, bcd_data
+    andi TL, 0x0F           ; máscara: pega a unidade
     rcall BCD_APPLY
-
-    ; prepara para a próxima rodada
-    clr mux_flag
-    
+;   ~
+TIMER0_TOGGLE:
+    ; alterna o estado da flag (0 para 1, 1 para 0) de forma nativa com XOR
+    ldi TL, 1
+    eor mux_flag, TL
+;   ~
 TIMER0_EXIT:
     POP_CONTEXT
+    
     reti
 ;   ~
 
@@ -329,25 +347,35 @@ TIMER0_EXIT:
 TIMER1_COMPA_ISR:
     PUSH_CONTEXT
 
+
+    push ZL
+    push ZH
+    push XL
+    push XH
+    
     cpi ticks_left, 0
     breq TIME_IS_UP
 
     dec ticks_left
     rcall UPDATE_BCD
     rjmp TIMER1_EXIT
-    
+;   ~ 
 TIME_IS_UP: 
     mov current_state, next_state
-
-    ; carrega todo o contexto do novo estado (incluindo o ponteiro X da nova string)
-    rcall LOAD_STATE        
+    
+    rcall LOAD_STATE  ; carrega todo o contexto do novo estado (incluindo o ponteiro X da nova string)
 
     ; liga a interrupção UDRE0 para iniciar a cascata de envios
     lds TL, UCSR0B
     ori TL, (1 << UDRIE0)         
     sts UCSR0B, TL
-
+;   ~
 TIMER1_EXIT:
+    pop XH
+    pop XL
+    pop ZH
+    pop ZL
+    
     POP_CONTEXT
     reti
 ;   ~
@@ -358,20 +386,19 @@ TIMER1_EXIT:
 UART_UDRE_ISR:
     PUSH_CONTEXT
     
-    ; salva o Z atual (usado pelo LOAD_STATE)
     push ZL
     push ZH
     
-    ; move o ponteiro X (da string) para Z, pois o lpm exige o Z
-    mov ZL, XL
-    mov ZH, XH
+    ; carrega o ponteiro da string armazenado na SRAM para o registrador Z
+    lds ZL, tx_ptr
+    lds ZH, tx_ptr+1
     
-    ; lê o próximo caractere e avança o ponteiro Z
+    ; lê o próximo caractere da Flash e avança Z
     lpm TL, Z+
-    
-    ; atualiza o ponteiro X com a nova posição
-    mov XL, ZL
-    mov XH, ZH
+
+    ; salva o ponteiro Z atualizado de volta na SRAM
+    sts tx_ptr, ZL
+    sts tx_ptr+1, ZH
     
     ; verifica se é o final da string (0x00)
     tst TL
@@ -380,21 +407,22 @@ UART_UDRE_ISR:
     ; se não for nulo, envia o caractere e sai
     sts UDR0, TL
     rjmp TX_EXIT
-
+;   ~
 TX_FINISHED:
     ; se chegou ao fim da string, desliga a própria interrupção UDRE0
     lds TL, UCSR0B
     andi TL, 0b11011111           ; limpa o bit 5 (UDRIE0)
     sts UCSR0B, TL
-
+;   ~
 TX_EXIT:
     ; restaura o ponteiro Z e o contexto
     pop ZH
     pop ZL
+
     POP_CONTEXT
     reti
-
 ;   ~
+
 ;=============================================================================
 ; STATE MACHINE DATA (.db / .dw)
 ; structure (8 bytes per state):
@@ -487,19 +515,19 @@ STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
 ;=============================================================================
 ; STRINGS DE ESTADO (Terminadas em NULL com quebra de linha CR+LF)
 ;=============================================================================
-STR_ST_0:  .db "S00: _MGMT", 10, "CW: R | TL4: Y | TL3: Y | TL2: Y | TL1: Y", 13, 0x00
-STR_ST_1:  .db "S01: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
-STR_ST_2:  .db "S02: CW///", 13, "CW: G | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
-STR_ST_3:  .db "S03: CW***", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
-STR_ST_4:  .db "S04: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
-STR_ST_5:  .db "S05: ?????", 13, "CW: R | TL4: R | TL3: R | TL2: G | TL1: G", 13, 0x00
-STR_ST_6:  .db "S06: ?????", 13, "CW: R | TL4: R | TL3: R | TL2: Y | TL1: G", 13, 0x00
-STR_ST_7:  .db "S07: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: G", 13, 0x00
-STR_ST_8:  .db "S08: ?????", 13, "CW: R | TL4: G | TL3: R | TL2: R | TL1: G", 13, 0x00
-STR_ST_9:  .db "S09: ALERT", 13, "CW: R | TL4: Y | TL3: R | TL2: R | TL1: Y", 13, 0x00
-STR_ST_10: .db "S10: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
-STR_ST_11: .db "S11: ?????", 13, "CW: R | TL4: R | TL3: G | TL2: R | TL1: R", 13, 0x00
-STR_ST_12: .db "S12: ?????", 13, "CW: R | TL4: R | TL3: Y | TL2: R | TL1: R", 13, 0x00
+STR_ST_0:  .db "S00: _MGMT", 13, 10, "CW: R | TL4: Y | TL3: Y | TL2: Y | TL1: Y", 13, 10, 0x00
+STR_ST_1:  .db "S01: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_2:  .db "S02: CW///", 13, 10, "CW: G | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_3:  .db "S03: CW***", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_4:  .db "S04: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_5:  .db "S05: ?????", 13, 10, "CW: R | TL4: R | TL3: R | TL2: G | TL1: G", 13, 10, 0x00
+STR_ST_6:  .db "S06: ?????", 13, 10, "CW: R | TL4: R | TL3: R | TL2: Y | TL1: G", 13, 10, 0x00
+STR_ST_7:  .db "S07: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: G", 13, 10, 0x00
+STR_ST_8:  .db "S08: ?????", 13, 10, "CW: R | TL4: G | TL3: R | TL2: R | TL1: G", 13, 10, 0x00
+STR_ST_9:  .db "S09: ALERT", 13, 10, "CW: R | TL4: Y | TL3: R | TL2: R | TL1: Y", 13, 10, 0x00
+STR_ST_10: .db "S10: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_11: .db "S11: ?????", 13, 10, "CW: R | TL4: R | TL3: G | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_12: .db "S12: ?????", 13, 10, "CW: R | TL4: R | TL3: Y | TL2: R | TL1: R", 13, 10, 0x00
 ;   ~
 STR_BOOT:  .db "[RESET]", 0x0D, 0x0A, 0x00
 ;   ~
