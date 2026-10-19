@@ -40,9 +40,10 @@
 .equ MUX_PIN        = 0     ; pino PD0
 
 ; timer constants
-.equ PRESCALER      = 0b101 ; cs12 e cs10 (Timer1)
-.equ TOP_1S         = 15624 ; (Timer1) (1s @ 16mhz c/ prescaler = 1024)
-.equ TOP_144HZ      = 216   ; 16MHz / (256 * 288Hz) - 1 (Timer0) TOP = (16.000.000 / (256 * 288)) - 1 = 216
+.equ CPU_F          = 16000000                      ; 16 MHz
+.equ PRESCALER      = 0b101                         ; cs12 e cs10 (Timer1)
+.equ TOP_144HZ      = (CPU_F / (256 * 288)) - 1     ; (Timer0)
+.equ TOP_1S         = (CPU_F / 1024) - 1            ; (Timer1)
 
 ;=============================================================================
 ; DATA SEGMENT (SRAM)
