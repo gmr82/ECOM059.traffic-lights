@@ -7,37 +7,36 @@
 .include "m328Pdef.inc"
 
 .macro PUSH_CONTEXT
-    push temp
-    in temp, SREG
-    push temp
+    push TL
+    in TL, SREG
+    push TL
 .endmacro
 
 .macro POP_CONTEXT
-    pop temp
-    out SREG, temp
-    pop temp
+    pop TL
+    out SREG, TL
+    pop TL
 .endmacro
 
 ; registers definition
-.def temp           = r16
-.def temp2          = r17
+.def TL             = r16   ; temporário low
+.def TH             = r17   ; temporário high
 .def current_state  = r18   ; guarda o indice do estado atual (0, 1, 2...)
-.def ticks_left     = r19   ; contador de tempo decremental do estado
-.def next_state     = r20   ; guarda qual sera o proximo estado
-.def bcd_cmd        = r21   ; comando atual do bcd
+.def next_state     = r19   ; guarda qual será o proximo estado
+.def ticks_left     = r20   ; contador de tempo decremental do estado
+.def bcd_cmd        = r21   ; comando atual do bcd {otimizar}
 
 ; multiplexing registers
 .def mux_flag       = r22   ; controla de quem e a vez (0=tens, 1=units)
-.def bcd_tens       = r23   ; guarda o digito da dezena
+.def bcd_tens       = r23   ; guarda o digito da dezena  ¿ dividir p/ usar apenas um registrador 4b+4b ?
 .def bcd_units      = r24   ; guarda o digito da unidade
 
-; .def ptr_xl = r26   ; ponteiro baixo para a string
-; .def ptr_xh = r27   ; ponteiro alto para a string
+; .def blink_divider  = r25   ; conta até 144 para dar os 500ms (288Hz)
+; .def blink_flags    = r28   ; registador unificado p/ flags de pisca
 
 ; mux pin definitions
 .equ MUX_PORT       = PORTD
-.equ MUX_DDR        = DDRD
-.equ MUX_PIN        = 0     ; pino pd0
+.equ MUX_PIN        = 0     ; pino PD0
 
 ; timer constants
 .equ PRESCALER      = 0b101 ; cs12 e cs10 (Timer1)
@@ -61,103 +60,103 @@
 ;   ~
 
 ;=============================================================================
-; SYSTEM INITIALIZATION
+; SYSTEM INITIALIZATION/RESET
 ;=============================================================================
 RESET:
     ; stack pointer
-    ldi temp, high(RAMEND)
-    out SPH, temp
-    ldi temp, low(RAMEND)
-    out SPL, temp
+    ldi TL, high(RAMEND)
+    out SPH, TL
+    ldi TL, low(RAMEND)
+    out SPL, TL
     
     ; configura as portas
-    ldi temp, 0b00111111    ; bits 0~5 como saida
-    out DDRB, temp          ; portb (semaforos 1 e 2)
-    out DDRC, temp          ; portc (semaforos 3 e 4)
+    ldi TL, 0b00111111    ; bits 0~5 como saida
+    out DDRB, TL          ; portb (semaforos 1 e 2)
+    out DDRC, TL          ; portc (semaforos 3 e 4)
 
-    ldi temp, 0b11111101    ; bits 0, 2~7 como saida (1 livre para tx)
-    out DDRD, temp          ; portd (mux, bcd e semaforo 5)
+    ldi TL, 0b11111101    ; bits 0, 2~7 como saida (1 livre para tx)
+    out DDRD, TL          ; portd (mux, bcd e semaforo 5)
 
-    ; liga o pull-up interno no pino PD1 (TX) para evitar lixo serial no arranque
-    sbi PORTD, 1
+    ; ; liga o pull-up interno no pino PD1 (TX) para evitar lixo serial ao ligar/resetar
+    ; sbi PORTD, 1
 
     ; configura o timer0 para o chaveamento dos displays (~288hz)
     clr mux_flag            
     
-    ldi temp, (1 << WGM01)          ; modo CTC
-    out TCCR0A, temp
+    ldi TL, (1 << WGM01)          ; modo CTC
+    out TCCR0A, TL
     
-    ldi temp, TOP_144HZ
-    out OCR0A, temp                 ; carrega o limite da contagem (216)
+    ldi TL, TOP_144HZ
+    out OCR0A, TL                 ; carrega o limite da contagem (216)
     
-    lds temp, TIMSK0
-    sbr temp, (1 << OCIE0A)         ; habilita a interrupcao Compare Match A
-    sts TIMSK0, temp
+    lds TL, TIMSK0
+    sbr TL, (1 << OCIE0A)         ; habilita a interrupcao Compare Match A
+    sts TIMSK0, TL
 
     ; configura o timer1 para a maquina de estados (1s)
-    ldi temp, high(TOP_1S)
-    sts OCR1AH, temp
-    ldi temp, low(TOP_1S)
-    sts OCR1AL, temp
+    ldi TL, high(TOP_1S)
+    sts OCR1AH, TL
+    ldi TL, low(TOP_1S)
+    sts OCR1AL, TL
     
-    lds temp, TIMSK1
-    sbr temp, (1 << OCIE1A) 
-    sts TIMSK1, temp
+    lds TL, TIMSK1
+    sbr TL, (1 << OCIE1A) 
+    sts TIMSK1, TL
 
     ; configura UART (9600 bps @ 16 MHz)
-    clr temp
-    sts UBRR0H, temp
-    ldi temp, 103                   ; 16.000.000 / (16 * 9600) - 1
-    sts UBRR0L, temp
+    clr TL
+    sts UBRR0H, TL
+    ldi TL, 103                   ; 16.000.000 / (16 * 9600) - 1
+    sts UBRR0L, TL
 
-    ldi temp, (1 << TXEN0)          ; habilita apenas TX (interrupção desligada)
-    sts UCSR0B, temp
+    ldi TL, (1 << TXEN0)          ; habilita apenas TX (interrupção desligada)
+    sts UCSR0B, TL
 
-    ldi temp, (1 << UCSZ01) | (1 << UCSZ00) ; frame 8 bits, 1 stop bit
-    sts UCSR0C, temp
+    ldi TL, (1 << UCSZ01) | (1 << UCSZ00)   ; frame 8 bits, 1 stop bit
+    sts UCSR0C, TL
 
-    ; --- INÍCIO DO AVISO DE RESET (BOOT BANNER via Polling) ---
-    ldi ZH, high(STR_BOOT << 1)
-    ldi ZL, low(STR_BOOT << 1)
+    ; banner com mensagem de reset
+    ; ldi ZH, high(STR_BOOT << 1)
+    ; ldi ZL, low(STR_BOOT << 1)
 
-    BOOT_PRINT:
-        lpm temp, Z+        ; lê o caractere da memória
-        tst temp            ; verifica se é o nulo (0x00)
-        breq BOOT_DONE      ; se for nulo, a mensagem de reset acabou
+    ; MSG_PRINT:
+    ;     lpm TL, Z+        ; lê o caractere da memória
+    ;     tst TL            ; verifica se é o nulo (0x00)
+    ;     breq MSG_DONE       ; se for nulo, a mensagem de reset acabou
 
-    WAIT_BUFFER:
-        lds temp2, UCSR0A               
-        sbrs temp2, UDRE0               ; espera até o buffer da porta serial estar vazio
-        rjmp WAIT_BUFFER                
+    ; WAIT_BUFFER:
+    ;     lds TH, UCSR0A               
+    ;     sbrs TH, UDRE0               ; espera até o buffer da porta serial estar vazio
+    ;     rjmp WAIT_BUFFER                
 
-        sts UDR0, temp                  ; dispara a letra para o terminal
-        rjmp BOOT_PRINT                 ; repete para a próxima letra
-    BOOT_DONE:
-        ; --- FIM DO AVISO DE RESET ---
+    ;     sts UDR0, TL                  ; dispara a letra para o terminal
+    ;     rjmp MSG_PRINT                  ; repete para a próxima letra
+    ; MSG_DONE:
+    ;     ; mensagem de reset enviada
 
     ; inicia o motor de estados
     clr current_state       
     rcall LOAD_STATE
 
     ; liga a interrupção UDRE0 para disparar a mensagem do Estado 0
-    lds temp, UCSR0B
-    ori temp, (1 << UDRIE0)         
-    sts UCSR0B, temp 
+    lds TL, UCSR0B
+    ori TL, (1 << UDRIE0)         
+    sts UCSR0B, TL 
 
     ; liga os relógios (Timers 0 e 1) e as interrupções globais
-    ldi temp, (1 << CS02)               ; dispara Timer0 (prescaler 256)
-    out TCCR0B, temp
+    ldi TL, (1 << CS02)               ; dispara Timer0 (prescaler 256)
+    out TCCR0B, TL
 
-    ldi temp, (1 << WGM12) | PRESCALER  ; dispara Timer1 (CTC, prescaler 1024)
-    sts TCCR1B, temp
+    ldi TL, (1 << WGM12) | PRESCALER  ; dispara Timer1 (CTC, prescaler 1024)
+    sts TCCR1B, TL
 
-    sei 
+    sei
 ;   ~
 ;=============================================================================
 ; ROUTINE: MAIN LOOP
 ;=============================================================================
-    MAIN_LOOP:
-    nop
+MAIN_LOOP:
+    ; nop
     rjmp MAIN_LOOP
 ;   ~
 
@@ -169,39 +168,45 @@ LOAD_STATE:
     ldi ZL, low(STATE_TABLE << 1)
 
     ; calcula o offset = current_state * 8
-    mov temp, current_state
-    lsl temp                ; x2
-    lsl temp                ; x4
-    lsl temp                ; x8
+    mov TL, current_state
+    lsl TL          ; x2
+    lsl TL          ; x4
+    lsl TL          ; x8
     
-    add ZL, temp
-    clr temp
-    adc ZH, temp
+    add ZL, TL
+    clr TL
+    adc ZH, TL
 
     ; lê e aplica PORTB
-    lpm temp, Z+
-    out PORTB, temp
-
-    ; lê e aplica PORTC
-    lpm temp, Z+
-    out PORTC, temp
-
-    ; lê e aplica PORTD preservando BCD e TX
-    lpm temp, Z+            
-    in temp2, PORTD         
-    andi temp2, 0b00111111  
-    andi temp,  0b11000000  
-    or temp2, temp          
-    out PORTD, temp2        
-
-    ; lê as variáveis de controlo
-    lpm ticks_left, Z+      
-    lpm next_state, Z+      
-    lpm bcd_cmd, Z+         ; '+' p/ avançar para o ponteiro
+    lpm TL, Z+
+    out PORTB, TL
     
+    ; andi blink_flags, 0b00000000
+
+    ; sbrc TL, 6            ; bit 6 do byte baixo = Pisca Veículos (V)
+    ; sbr blink_flags, 0b00000001
+    
+    ; sbrc TL, 7            ; bit 7 do byte baixo = Pisca Pedestres (P)
+    ; sbr blink_flags, 0b00000010
+
+    lpm TL, Z+
+    out PORTC, TL
+
+    ; lê e aplica PORTD preservando BCD e TX      
+    in TH, PORTD   
+    andi TH, 0b00111111
+    andi TL, 0b11000000
+    or TH, TL
+    out PORTD, TH 
+
     ; lê o endereço da string (2 bytes) diretamente para o ponteiro nativo X
     lpm XL, Z+
-    lpm XH, Z
+    lpm XH, Z+
+
+    ; lê as variáveis de controle
+    lpm next_state, Z+
+    lpm ticks_left, Z+
+    lpm bcd_cmd, Z+         ; '+' p/ avançar para o ponteiro
     
     rcall UPDATE_BCD
     ret
@@ -211,18 +216,18 @@ LOAD_STATE:
 ; SUBROUTINE: EXTRACT DIGITS (DECIMAL TO BCD)
 ;=============================================================================
 EXTRACT_DIGITS:
-    mov temp, ticks_left    
-    clr bcd_tens          
+    mov TL, ticks_left    
+    clr bcd_tens
 
 DIV_LOOP:
-    cpi temp, 10            
+    cpi TL, 10          
     brlo DIV_END            
-    subi temp, 10           
-    inc bcd_tens          
-    rjmp DIV_LOOP           
+    subi TL, 10          
+    inc bcd_tens         
+    rjmp DIV_LOOP          
 
 DIV_END:
-    mov bcd_units, temp   
+    mov bcd_units, TL   
     ret
 ;   ~
 
@@ -230,44 +235,46 @@ DIV_END:
 ; SUB-ROTINA: UPDATE BCD
 ;=============================================================================
 UPDATE_BCD:
-    cpi bcd_cmd, 2          ; comando 2 = desligar (Apagar) o display
+    cpi bcd_cmd, 0
+    breq BCD_ZERO
+
+    cpi bcd_cmd, 2          ; comando 2 = desligar (apagar) o display
     breq BCD_OFF
 
     ; se não for para desligar, faz a matemática normal do tempo
     rcall EXTRACT_DIGITS    
 
-    cpi bcd_cmd, 1          
-    breq BCD_COUNTDOWN
-    cpi bcd_cmd, 0          
-    breq BCD_ZERO
+    ;cpi bcd_cmd, 1          
+    ;breq BCD_COUNTDOWN
     ret                     
 
 BCD_OFF:
-    ldi temp, 15            ; O valor 15 (0b1111) força o BCD a desligar os LEDs
-    mov bcd_tens, temp
-    mov bcd_units, temp
+    ldi TL, 15            ; O valor 15 (0b1111) força o BCD a desligar os LEDs
+    mov bcd_tens, TL
+    mov bcd_units, TL
     rjmp BCD_APPLY          ; aplica imediatamente
 
-BCD_COUNTDOWN:
-    mov temp, ticks_left    
-    rjmp BCD_APPLY
+; BCD_COUNTDOWN:
+;     ; mov TL, ticks_left
+;     ; ldi TL, $FF
+;     rjmp BCD_APPLY
 
 BCD_ZERO:
-    clr temp                
+    clr TL                
     clr bcd_tens
     clr bcd_units
 
 BCD_APPLY:
     ; move o valor numerico para os bits 2~5
-    lsl temp                
-    lsl temp                
-    andi temp, 0b00111100   
+    lsl TL                
+    lsl TL                
+    andi TL, 0b00111100   
     
     ; injeta no portd preservando bits 0~1 e 6~7
-    in temp2, PORTD         
-    andi temp2, 0b11000011  
-    or temp2, temp          
-    out PORTD, temp2        
+    in TH, PORTD         
+    andi TH, 0b11000011  
+    or TH, TL          
+    out PORTD, TH        
     ret
 ;   ~
 
@@ -277,12 +284,12 @@ BCD_APPLY:
 TIMER0_COMPA_ISR:
     PUSH_CONTEXT
 
-    ; --- ANTI-GHOSTING (BLANKING) ---
-    ; Força '1111' nos bits 2 a 5 do PORTD para apagar o decodificador BCD
-    in temp2, PORTD
-    ori temp2, 0b00111100   ; O 'ori' (OR) coloca 1 nos bits do BCD sem afetar os outros
-    out PORTD, temp2
-    ; --------------------------------
+    ; ; --- ANTI-GHOSTING (BLANKING) ---
+    ; ; Força '1111' nos bits 2 a 5 do PORTD para apagar o decodificador BCD
+    ; in TH, PORTD
+    ; ori TH, 0b00111100   ; O 'ori' (OR) coloca 1 nos bits do BCD sem afetar os outros
+    ; out PORTD, TH
+    ; ; --------------------------------
 
     sbrc mux_flag, 0        
     rjmp MUX_UNITS
@@ -292,12 +299,12 @@ MUX_TENS:
     sbi MUX_PORT, MUX_PIN   
     
     ; envia o número da dezena DEPOIS
-    mov temp, bcd_tens
+    mov TL, bcd_tens
     rcall BCD_APPLY
 
     ; prepara para a próxima rodada
-    ldi temp, 1
-    mov mux_flag, temp
+    ldi TL, 1
+    mov mux_flag, TL
     rjmp TIMER0_EXIT
 
 MUX_UNITS:
@@ -305,7 +312,7 @@ MUX_UNITS:
     cbi MUX_PORT, MUX_PIN   
 
     ; envia o número da unidade DEPOIS
-    mov temp, bcd_units
+    mov TL, bcd_units
     rcall BCD_APPLY
 
     ; prepara para a próxima rodada
@@ -336,9 +343,9 @@ TIME_IS_UP:
     rcall LOAD_STATE        
 
     ; liga a interrupção UDRE0 para iniciar a cascata de envios
-    lds temp, UCSR0B
-    ori temp, (1 << UDRIE0)         
-    sts UCSR0B, temp
+    lds TL, UCSR0B
+    ori TL, (1 << UDRIE0)         
+    sts UCSR0B, TL
 
 TIMER1_EXIT:
     POP_CONTEXT
@@ -360,25 +367,25 @@ UART_UDRE_ISR:
     mov ZH, XH
     
     ; lê o próximo caractere e avança o ponteiro Z
-    lpm temp, Z+
+    lpm TL, Z+
     
     ; atualiza o ponteiro X com a nova posição
     mov XL, ZL
     mov XH, ZH
     
     ; verifica se é o final da string (0x00)
-    tst temp
+    tst TL
     breq TX_FINISHED
     
     ; se não for nulo, envia o caractere e sai
-    sts UDR0, temp
+    sts UDR0, TL
     rjmp TX_EXIT
 
 TX_FINISHED:
     ; se chegou ao fim da string, desliga a própria interrupção UDRE0
-    lds temp, UCSR0B
-    andi temp, 0b11011111           ; limpa o bit 5 (UDRIE0)
-    sts UCSR0B, temp
+    lds TL, UCSR0B
+    andi TL, 0b11011111           ; limpa o bit 5 (UDRIE0)
+    sts UCSR0B, TL
 
 TX_EXIT:
     ; restaura o ponteiro Z e o contexto
@@ -391,109 +398,108 @@ TX_EXIT:
 ;=============================================================================
 ; STATE MACHINE DATA (.db / .dw)
 ; structure (8 bytes per state):
-; byte 0: [PORTB - semaforos 1 e 2]
-; byte 1: [PORTC - semaforos 3 e 4]
-; byte 2: [PORTD - semaforo 5 nos bits 6 e 7]
-; byte 3: [time in seconds] 
-; byte 4: [next_state] 
-; byte 5: [bcd_command]
-; byte 6-7: [pointer to string message] (word)
+; byte 0-1: [BL[V,P]; S1[G,Y,R]; S2[G,Y,R]; [S3[G,Y,R]; S4[G,Y,R]; S5[G,R]] (word)
+; byte 2-3: [pointer to string message] (word)
+; byte 4: [next_state]
+; byte 5: [time in seconds] ¿ {1bits + 7bits} -> 1b:? + 7b:seconds ?
+; byte 6: [bcd_command]
+; byte 7: [alignment padding]
 ;=============================================================================
-STATE_TABLE:
-    ; ESTADO 0: Maintenance (Y intermitente / Manutenção)
-    .db 0b00010010, 0b00010010  ; S1, S2, S3, S4: Y
-    .db 0b10000000, 7           ; S5: R, 7s
-    .db 1, 1                    ; Prox 1, BCD COUNTDOWN
-    .dw (STR_ST_0 << 1)         
-    
-    ; ESTADO 1: Initial state (Todos Rs)
-    .db 0b00100100, 0b00100100  ; S1, S2, S3, S4: R
-    .db 0b10000000, 1           ; S5: R, 1s
-    .db 2, 2                    ; Prox 2, BCD OFF
-    .dw (STR_ST_1 << 1)         
-    
-    ; ESTADO 2: Crosswalks (S5: G)
-    .db 0b00100100, 0b00100100  ; S1, S2, S3, S4: R
-    .db 0b01000000, 12          ; S5: G, 12s
-    .db 3, 1                    ; Prox 3, BCD COUNTDOWN
-    .dw (STR_ST_2 << 1)         
-    
-    ; ESTADO 3: Pedestrian crossing alert (S5: alerta)
-    .db 0b00100100, 0b00100100  ; S1, S2, S3, S4: R
-    .db 0b10000000, 4           ; S5: R, 4s (No CSV: 0|1 piscar)
-    .db 4, 1                    ; Prox 4, BCD COUNTDOWN
-    .dw (STR_ST_3 << 1)         
-    
-    ; ESTADO 4: Security delay 1 (Segurança)
-    .db 0b00100100, 0b00100100  ; S1, S2, S3, S4: R
-    .db 0b10000000, 2           ; S5: R, 2s
-    .db 5, 2                    ; Prox 5, BCD OFF
-    .dw (STR_ST_4 << 1)         
+STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
+    ; STATE 0: manutention/reset (* = blink)
+    .dw (0b0101001011010010)
+    .dw (STR_ST_0 << 1)         ; pointer to string message
+    .db 1, 5                    ; next_state, ticks_left (s)
+    .db 1, 0                    ; bcd_command, alignment padding
 
-    ; ESTADO 5: Southbound lanes reopened (S1 e S2: G)
-    .db 0b00001001, 0b00100100  ; S1, S2: G | S3, S4: R
-    .db 0b10000000, 22          ; S5: R, 22s
-    .db 6, 1                    ; Prox 6, BCD COUNTDOWN
-    .dw (STR_ST_5 << 1)         
+    ; STATE 1: initial state (ALL: R)
+    .dw (0b0100100111001001)
+    .dw (STR_ST_1 << 1)
+    .db 2, 1
+    .db 2, 0
 
-    ; ESTADO 6: Alert for the westbound (S2: Y)
-    .db 0b00010001, 0b00100100  ; S1: G, S2: Y | S3, S4: R
-    .db 0b10000000, 4           ; S5: R, 4s
-    .db 7, 1                    ; Prox 7, BCD COUNTDOWN
-    .dw (STR_ST_6 << 1)         
+    ; STATE 2: crosswalks (just CW: G)
+    .dw (0b1000100111001001)
+    .dw (STR_ST_2 << 1)
+    .db 3, 12
+    .db 1, 0
 
-    ; ESTADO 7: Security delay 2 (Segurança)
-    .db 0b00100001, 0b00100100  ; S1: G, S2 R | S3, S4: R
-    .db 0b10000000, 1           ; S5: R, 1s
-    .db 8, 2                    ; Prox 8, BCD OFF
-    .dw (STR_ST_7 << 1)         
+    ; STATE 3: pedestrian crossing alert (CW: alert*)
+    .dw (0b0100100111001001)
+    .dw (STR_ST_3 << 1)
+    .db 4, 4
+    .db 1, 0
 
-    ; ESTADO 8: StoN ^ NtoWaS (S1 e S4: G)
-    .db 0b00100001, 0b00001100  ; S1 R(x)->G! | S3 R, S4: G
-    .db 0b10000000, 60          ; S5: R, 60s
-    .db 9, 1                    ; Prox 9, BCD COUNTDOWN
-    .dw (STR_ST_8 << 1)         
+    ; STATE 4: security delay 1 (?)
+    .dw (0b0100100111001001)
+    .dw (STR_ST_4 << 1)
+    .db 5, 2
+    .db 2, 0
 
-    ; ESTADO 9: Main alert (S1 e S4: Y)
-    .db 0b00100010, 0b00010100  ; S1: Y, S2 R | S3 R, S4: Y
-    .db 0b10000000, 4           ; S5: R, 4s
-    .db 10, 1                   ; Prox 10, BCD COUNTDOWN
-    .dw (STR_ST_9 << 1)         
+    ; STATE 5: southbound lanes reopened (TL1, TL2: G)
+    .dw (0b0100100111100100)
+    .dw (STR_ST_5 << 1)
+    .db 6, 22
+    .db 1, 0
 
-    ; ESTADO 10: Security delay 3 (Segurança)
-    .db 0b00100100, 0b00100100  ; S1, S2, S3, S4: R
-    .db 0b10000000, 1           ; S5: R, 1s
-    .db 11, 2                   ; Prox 11, BCD OFF
-    .dw (STR_ST_10 << 1)        
+    ; STATE 6: alert for the westbound (TL2: Y)
+    .dw (0b0100100111010100)
+    .dw (STR_ST_6 << 1)
+    .db 7, 4
+    .db 1, 0
 
-    ; ESTADO 11: WtoSaN (S3: G)
-    .db 0b00100100, 0b00100001  ; S1, S2 R | S3: G, S4 R
-    .db 0b10000000, 25          ; S5: R, 25s
-    .db 12, 1                   ; Prox 12, BCD COUNTDOWN
-    .dw (STR_ST_11 << 1)        
+    ; STATE 7: security delay 2 (ALL: R)
+    .dw (0b0100100111001100)
+    .dw (STR_ST_7 << 1)
+    .db 8, 1
+    .db 2, 0
 
-    ; ESTADO 12: West to all alert (S3: Y)
-    .db 0b00100100, 0b00100010  ; S1, S2 R | S3: Y, S4 R
-    .db 0b10000000, 4           ; S5: R, 4s
-    .db 1, 1                    ; Prox 1, BCD COUNTDOWN
-    .dw (STR_ST_12 << 1)        
+    ; STATE 8: StoN ^ NtoWaS (TL1 e TL4: G)
+    .dw (0b0110000111001100)
+    .dw (STR_ST_8 << 1)
+    .db 9, 60
+    .db 1, 0
+
+    ; STATE 9: main alert (TL1 e TL4: Y)
+    .db 0b11001010, 0b01010001  ; .dw (0b0101000111001010)
+    .dw (STR_ST_9 << 1)
+    .db 10, 4
+    .db 1, 0
+
+    ; STATE 10: security delay 3 (ALL: R)
+    .dw (0b0100100111001001)
+    .dw (STR_ST_10 << 1)
+    .db 11, 1
+    .db 2, 0
+
+    ; STATE 11: WtoSaN (TL3: G)
+    .dw (0b0100110011001001)
+    .dw (STR_ST_11 << 1)
+    .db 12, 25
+    .db 1, 0
+
+    ; STATE 12: west to all alert (TL3: Y)
+    .dw (0b0100101011001001)
+    .dw (STR_ST_12 << 1)
+    .db 1, 4
+    .db 1, 0
 ;   ~
 ;=============================================================================
 ; STRINGS DE ESTADO (Terminadas em NULL com quebra de linha CR+LF)
 ;=============================================================================
-STR_ST_0:  .db "E0: Maintenance (Manutencao)", 0x0D, 0x0A, 0x00
-STR_ST_1:  .db "E1: Initial state (Todos R)", 0x0D, 0x0A, 0x00
-STR_ST_2:  .db "E2: Crosswalks (S5 G)", 0x0D, 0x0A, 0x00
-STR_ST_3:  .db "E3: Pedestrian crossing alert", 0x0D, 0x0A, 0x00
-STR_ST_4:  .db "E4: Security delay 1", 0x0D, 0x0A, 0x00
-STR_ST_5:  .db "E5: Southbound lanes reopened", 0x0D, 0x0A, 0x00
-STR_ST_6:  .db "E6: Alert for the westbound", 0x0D, 0x0A, 0x00
-STR_ST_7:  .db "E7: Security delay 2", 0x0D, 0x0A, 0x00
-STR_ST_8:  .db "E8: StoN & NtoWaS (S1, S4 G)", 0x0D, 0x0A, 0x00
-STR_ST_9:  .db "E9: Main alert (S1, S4 Y)", 0x0D, 0x0A, 0x00
-STR_ST_10: .db "E10: Security delay 3", 0x0D, 0x0A, 0x00
-STR_ST_11: .db "E11: WtoSaN (S3 G)", 0x0D, 0x0A, 0x00
-STR_ST_12: .db "E12: West to all alert (S3 Y)", 0x0D, 0x0A, 0x00
+STR_ST_0:  .db "S00: _MGMT", 10, "CW: R | TL4: Y | TL3: Y | TL2: Y | TL1: Y", 13, 0x00
+STR_ST_1:  .db "S01: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
+STR_ST_2:  .db "S02: CW///", 13, "CW: G | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
+STR_ST_3:  .db "S03: CW***", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
+STR_ST_4:  .db "S04: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
+STR_ST_5:  .db "S05: ?????", 13, "CW: R | TL4: R | TL3: R | TL2: G | TL1: G", 13, 0x00
+STR_ST_6:  .db "S06: ?????", 13, "CW: R | TL4: R | TL3: R | TL2: Y | TL1: G", 13, 0x00
+STR_ST_7:  .db "S07: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: G", 13, 0x00
+STR_ST_8:  .db "S08: ?????", 13, "CW: R | TL4: G | TL3: R | TL2: R | TL1: G", 13, 0x00
+STR_ST_9:  .db "S09: ALERT", 13, "CW: R | TL4: Y | TL3: R | TL2: R | TL1: Y", 13, 0x00
+STR_ST_10: .db "S10: DELAY", 13, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 0x00
+STR_ST_11: .db "S11: ?????", 13, "CW: R | TL4: R | TL3: G | TL2: R | TL1: R", 13, 0x00
+STR_ST_12: .db "S12: ?????", 13, "CW: R | TL4: R | TL3: Y | TL2: R | TL1: R", 13, 0x00
 ;   ~
 STR_BOOT:  .db "[RESET]", 0x0D, 0x0A, 0x00
 ;   ~
