@@ -2,25 +2,25 @@
 ; semaforoforo.asm
 ;
 ; Created: 07/10/2026 11:25:39
-; Authors :
+; Authors : nÃ³s
 
 
-; Determina um segmento de código para a FLASH
+; Determina um segmento de cï¿½digo para a FLASH
 .cseg
 
 ; ==============================================
 ; Registradores
 ; ==============================================
 .def state_count = r16 ; Contagem dos estados
-.def serial_high = r17 ; Armazena a parte alta do endereço da mensagem do estado
-.def serial_low = r18 ; Armazena a parte baixa do endereço da mensagem do estado
+.def serial_high = r17 ; Armazena a parte alta do endereï¿½o da mensagem do estado
+.def serial_low = r18 ; Armazena a parte baixa do endereï¿½o da mensagem do estado
 .def temp = r19 ; Registrador que auxilia durante o programa
 .def temp2 = r20 ; Registrador que auxilia durante o programa
-.def count_aux = r21 ; Conta quantas interrupções foram feitas pelo timer 1
+.def count_aux = r21 ; Conta quantas interrupï¿½ï¿½es foram feitas pelo timer 1
 .def dezena = r22 ; Armazena a dezena do display
 .def unidade = r23 ; Armazena a unidade do display
 .def display_select = r24 ; Alterna o display, entre dezena e unidade
-.def s1count = r25 ; Conta 2 interrupções de 0.5s
+.def s1count = r25 ; Conta 2 interrupï¿½ï¿½es de 0.5s
 ; ==============================================
 
 
@@ -28,7 +28,7 @@
 ; Constantes
 ; ==============================================
 .set state_limit = 12 ; Limite de estados
-.set s1_limit = 2 ; Limite de interrupções para 1s
+.set s1_limit = 2 ; Limite de interrupï¿½ï¿½es para 1s
 
 .set d46 = 4 ; Dezena do primeiro ciclo
 .set u46 = 6 ; Unidade do primeiro ciclo
@@ -40,26 +40,26 @@
 #define CLOCK 16.0e6 ; Define o clock como 16MHz
 
 ; #==== Timer 0 ====#
-; Será usado para o display
-; Este timer só conta até 256 (tem 1 byte só)
+; Serï¿½ usado para o display
+; Este timer sï¿½ conta atï¿½ 256 (tem 1 byte sï¿½)
 .equ delay0 = 2 ; Define um delay de 5ms
 .equ prescale0 = 0b101 ; Fixa o prescale do timer 2 em 1024
 .equ prescale_div0 = 1024 ; Valor do prescale fixado
-.equ TOP0 = int(((CLOCK * delay0)/(prescale_div0 * 1000)) - 1) ; Expressão que calcula o TOP0
+.equ TOP0 = int(((CLOCK * delay0)/(prescale_div0 * 1000)) - 1) ; Expressï¿½o que calcula o TOP0
 .equ WGM0 = 0b10 ; Para configurar o timer 0 no modo ctc
 ; #===================
 
 ; #==== Timer 1 ====#
-; Será usado para interrupção do estado
+; Serï¿½ usado para interrupï¿½ï¿½o do estado
 .equ delay = 500 ; Define um delay de 500ms
 .equ prescale = 0b0100 ; Fixa o prescale do timer 1 em 256
 .equ prescale_div = 256 ; Valor do prescale fixado
-.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1) ; Expressão que calcula o TOP
+.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1) ; Expressï¿½o que calcula o TOP
 .equ WGM = 0b0100 ; Pra configurar o timer 1 no modo ctc
 ; #===================
  
  ; #==== USART ====#
-.equ baundrate = 9600 ; Define o baundrate em 9600 ideal para uma comunicação moderada
+.equ baundrate = 9600 ; Define o baundrate em 9600 ideal para uma comunicaï¿½ï¿½o moderada
 .equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1) ; Valor do UBRR
 ; #===================
 ; ==============================================
@@ -69,33 +69,33 @@
 ; ==============================================
 ; Inicia o tudo
 ; ==============================================
-.org 0 ; Manda PC para o endereço 0
+.org 0 ; Manda PC para o endereï¿½o 0
 jmp reset ; Pula para o inicializador do maldito programa
 ; ==============================================
 
 
 
 ; ==============================================
-; Tratamento da interrupção do timer 1
+; Tratamento da interrupï¿½ï¿½o do timer 1
 ; ==============================================
-.org OC1Aaddr ; Move o PC para o endereço da interrupção do timer 1
+.org OC1Aaddr ; Move o PC para o endereï¿½o da interrupï¿½ï¿½o do timer 1
 rjmp OCI1A_Interrupt ; Desvia para a subrotina de tratamento do timer 1
 ; ==============================================
 
 
 ; ==============================================
-; Tratamento da interrupção do timer 1
+; Tratamento da interrupï¿½ï¿½o do timer 0
 ; ==============================================
-.org OC0Aaddr ; Move o PC para o endereço da interrupção do timer 0
+.org OC0Aaddr ; Move o PC para o endereï¿½o da interrupï¿½ï¿½o do timer 0
 rjmp TIMER0_Interrupt ; Desvia para a subrotina de tratamento do timer 0
 ; ==============================================
 
 
 
 ; ==============================================
-; Tratamento da interrupção do serial
+; Tratamento da interrupï¿½ï¿½o do serial
 ; ==============================================
-.org UDREaddr ; Move o PC para o endereço da interrupção de envio
+.org UDREaddr ; Move o PC para o endereï¿½o da interrupï¿½ï¿½o de envio
 rjmp USART_UDRE_Interrupt ; Desvia para a subrotina de tratamento de envio da serial
 ; ==============================================
 
@@ -115,9 +115,9 @@ reset:
 	
 	clr state_count ; Zera o contador de estados
 	clr display_select ; Zera o seletor do display
-	clr s1count ; Zera o contador de interrupções para contar 1s
+	clr s1count ; Zera o contador de interrupï¿½ï¿½es para contar 1s
 
-	rcall init_uart ; Inicializa a transmissão
+	rcall init_uart ; Inicializa a transmissï¿½o
 	rcall init_ports ; Inicializa as portas dos leds
 
 
@@ -131,7 +131,7 @@ reset:
 	rcall init_timer ; Inicia o timer 1
 	rcall init_timer0 ; Inicia o timer 0
 
-	sei ; Habilita as interrupções globais
+	sei ; Habilita as interrupï¿½ï¿½es globais
 ; ============================================================
 	
 
@@ -147,19 +147,19 @@ loop:
 
 
 ; ============================================================
-; Iniciando os periféricos
+; Iniciando os perifï¿½ricos
 ; ============================================================
-; #==== Inicializa as portas de saída ====#
+; #==== Inicializa as portas de saï¿½da ====#
 init_ports:
-	; Configura como saída de 0 - 5 para a porta B
+	; Configura como saï¿½da de 0 - 5 para a porta B
 	ldi temp, $3F
 	out DDRB, temp
 
-	; Configura como saída de 0 - 5 para a porta C
+	; Configura como saï¿½da de 0 - 5 para a porta C
 	ldi temp, $3F
 	out DDRC, temp
 
-	; Configura como saída os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
+	; Configura como saï¿½da os bits 0, 2, 3, 4 , 5, 6 e 7 para a porta D
 	ldi temp, $FD
 	out DDRD, temp
 	
@@ -179,11 +179,11 @@ init_uart:
 	; UMSEL01 E UMSEL01 = 0 0 ---> Modo assincrono
 	; UPM01 E UPM00 = 0 0 ----> Paridade desativada
 	; USBS0 = 0 ----> 1 Bit de parada
-	; UCSZ02, UCSZ01 E UCSZ00 = 0 1 1 ----> 8 bits por transimissão, ideal para transmitir caracteres
+	; UCSZ02, UCSZ01 E UCSZ00 = 0 1 1 ----> 8 bits por transimissï¿½o, ideal para transmitir caracteres
 	ldi temp, (0b11 << UCSZ00)
 	sts UCSR0C, temp
 
-	; Habilidando a transmissão
+	; Habilidando a transmissï¿½o
 	ldi temp, (1 << TXEN0)
 	sts UCSR0B, temp
 
@@ -197,7 +197,7 @@ init_timer0:
 	ldi temp, TOP0
 	out OCR0A, temp
 
-	; Habilita a interrpução pelo timer 0
+	; Habilita a interrpuï¿½ï¿½o pelo timer 0
 	lds temp, TIMSK0
 	ori temp, (1 << OCIE0A)
 	sts TIMSK0, temp
@@ -221,20 +221,20 @@ init_timer:
 	ldi temp, low(TOP)
 	sts OCR1AL, temp
 
-	;Habilita as interrupções do timer
-	;Carrega o valor do registrador de controle do timer, evita carregar bagunça no TIMSK1
+	;Habilita as interrupï¿½ï¿½es do timer
+	;Carrega o valor do registrador de controle do timer, evita carregar bagunï¿½a no TIMSK1
 	lds temp, TIMSK1
-	;Seta OCIE1A para 1, habilitando as interrupções via timer
+	;Seta OCIE1A para 1, habilitando as interrupï¿½ï¿½es via timer
 	sbr temp, 1 << OCIE1A
 	;Carrega para o registrador de controle do timer
 	sts TIMSK1, temp
 
-	; Configurar o timer bolado pra contar (maldito só sabe contar até 0.5s	)
+	; Configurar o timer bolado pra contar (maldito sï¿½ sabe contar atï¿½ 0.5s	)
 	; WGM&0b11 = 0b0100 & 0b0011 = 0b0000 
 	ldi temp, ((WGM&0b11) << WGM10)
 	sts TCCR1A, temp
 
-	;2 bits mais significativos de WGM e seleção de clock
+	;2 bits mais significativos de WGM e seleï¿½ï¿½o de clock
 	; WGM >> 2 = 0b0100 >> 2 = 0b0001
 	; (WGM >> 2) << WGM12 = (0b0001 << 3) = 0b0001000
 	; (PRESCALE << CS10) = 0b101 << 0 = 0b101
@@ -249,11 +249,11 @@ init_timer:
 
 
 ; ============================================================
-; Tratamento das interrupções
+; Tratamento das interrupï¿½ï¿½es
 ; ============================================================
-; #==== Interrupção de transmissão do serial ====#
+; #==== Interrupï¿½ï¿½o de transmissï¿½o do serial ====#
 USART_UDRE_Interrupt:
-	; Armazena inicialmente alguns registradores por precaução
+	; Armazena inicialmente alguns registradores por precauï¿½ï¿½o
 	push temp
 	in temp, SREG
 	push temp
@@ -261,22 +261,22 @@ USART_UDRE_Interrupt:
 	push ZL
 
 
-	; Carrega o endereço, no registrador Z, da mensagem que será enviada
+	; Carrega o endereï¿½o, no registrador Z, da mensagem que serï¿½ enviada
 	mov ZL, serial_low
 	mov ZH, serial_high
 
 
-	; Carrega o caracter na posição de Z e atualiza para o próximo endereço
+	; Carrega o caracter na posiï¿½ï¿½o de Z e atualiza para o prï¿½ximo endereï¿½o
 	; Estamos enviando caracter por caracter
 	lpm temp, Z+
 
 
-	; Guarda o endereço atualizado para continuar o envio da mensagem
+	; Guarda o endereï¿½o atualizado para continuar o envio da mensagem
 	mov serial_low, ZL
 	mov serial_high, ZH
 
 
-	; tst verifica se o valor de temp é 0, se for ele levanta a flag de zero no SREG
+	; tst verifica se o valor de temp ï¿½ 0, se for ele levanta a flag de zero no SREG
 	tst temp
 	; Desvia, caso tenha recebido 0, para encerrar o envio da mensagem
 	breq fim_serial
@@ -284,16 +284,16 @@ USART_UDRE_Interrupt:
 	; Manda o caracter pra o UDR enviando ele pro serial
 	sts UDR0, temp
 
-	; Desvia para a saída da função
+	; Desvia para a saï¿½da da funï¿½ï¿½o
 	rjmp saida_serial
 
-	; Encerra o envio desligando a interrupção
+	; Encerra o envio desligando a interrupï¿½ï¿½o
 	fim_serial:
 		lds temp, UCSR0B
 		andi temp, ~(1 << UDRIE0)
 		sts UCSR0B, temp
 
-	; Sai da interrupção
+	; Sai da interrupï¿½ï¿½o
 	saida_serial:
 		pop ZL
 		pop ZH
@@ -305,14 +305,14 @@ USART_UDRE_Interrupt:
 ; #=====================================#
 
 
-; #==== Interrupção do timer 0 ====#
+; #==== Interrupï¿½ï¿½o do timer 0 ====#
 TIMER0_Interrupt:
 	push temp
 	in temp, SREG
 	push temp
 	push temp2
 
-	; Faz um xor zerando ou setando 1 na seleção do display
+	; Faz um xor zerando ou setando 1 na seleï¿½ï¿½o do display
 	ldi temp, 1
 	eor display_select, temp
 	in temp, PORTD
@@ -322,7 +322,7 @@ TIMER0_Interrupt:
 	breq mostra_unidade
 
 	mostra_dezena:
-		; Joga 1 no bit de seleção da porta D
+		; Joga 1 no bit de seleï¿½ï¿½o da porta D
 		ori temp, (1 << 0)
 		mov temp2, dezena
 
@@ -331,7 +331,7 @@ TIMER0_Interrupt:
 		jmp saida_timer
 		 
 	mostra_unidade:
-		; Joga 0 no bit de seleção da porta D
+		; Joga 0 no bit de seleï¿½ï¿½o da porta D
 		andi temp, ~(1 << 0)
 		mov temp2, unidade
 
@@ -339,7 +339,7 @@ TIMER0_Interrupt:
 		rcall charge_display
 		jmp saida_timer
 
-	; Saída
+	; Saï¿½da
 	saida_timer:
 		pop temp2
 		pop temp
@@ -350,9 +350,9 @@ TIMER0_Interrupt:
 ; ; #=====================================#
 
 
-; #==== Interrupção do timer 1 ====#
+; #==== Interrupï¿½ï¿½o do timer 1 ====#
 OCI1A_Interrupt:
-	; Armazena inicialmente alguns registradores por precaução
+	; Armazena inicialmente alguns registradores por precauï¿½ï¿½o
 	push temp
 	in temp, SREG
 	push temp
@@ -386,20 +386,20 @@ OCI1A_Interrupt:
 		jmp continua
 
 	continua:
-		; Verifica se o contador auxiliar é 0, caso seja, pula para o próximo estado
+		; Verifica se o contador auxiliar ï¿½ 0, caso seja, pula para o prï¿½ximo estado
 		cpi count_aux, 0
 		breq proximo_estado
 
-		; Caso o contador não seja 0 significa que ainda não mudou de estado e decrementa ele
+		; Caso o contador nï¿½o seja 0 significa que ainda nï¿½o mudou de estado e decrementa ele
 		dec count_aux
 
-		; Verifica se está no estado (Fechando para pedestres), caso não esteja ele desvia pra saída
+		; Verifica se estï¿½ no estado (Fechando para pedestres), caso nï¿½o esteja ele desvia pra saï¿½da
 		cpi state_count, 2
 		brne exit
 
 		; Caso esteja no estado 2 faz o led vermelho piscar
 		; Seta 1 no bit 7 do PIND
-		; A ideia é que se escrever 1 no PIND ele inverte o valor do bit
+		; A ideia ï¿½ que se escrever 1 no PIND ele inverte o valor do bit
 		; Se estava 0 (LED apagado), vira 1 (LED aceso)
 		; Se estava 1 (LED aceso), vira 0 (LED apagado)
 		sbi PIND, 7
@@ -407,20 +407,20 @@ OCI1A_Interrupt:
 		rjmp exit
 
 
-	; Passa para o próximo estado
+	; Passa para o prï¿½ximo estado
 	proximo_estado:
-		; Incrementa para passar pro próximo estado
+		; Incrementa para passar pro prï¿½ximo estado
 		inc state_count
 
-		; Verifica se chegou ao último estado, caso não seja ele desvia para carregar o próximo estado
+		; Verifica se chegou ao ï¿½ltimo estado, caso nï¿½o seja ele desvia para carregar o prï¿½ximo estado
 		cpi state_count, state_limit
 		brlo estado_valido
 
-		; Caso seja o último estado ele zera o estate_count fazendo voltar para o primeiro estado
+		; Caso seja o ï¿½ltimo estado ele zera o estate_count fazendo voltar para o primeiro estado
 		clr state_count
 
 	
-	; Carrega o próximo estado
+	; Carrega o prï¿½ximo estado
 	estado_valido:
 		; Carrega o 64
 		cpi state_count, 7
@@ -448,7 +448,7 @@ OCI1A_Interrupt:
 			; Carrega o novo estado dos leds
 			rcall charge_leds
 
-			; Prepara para tramissão da mensagem do novo estado
+			; Prepara para tramissï¿½o da mensagem do novo estado
 			rcall charge_serial
 		
 			; Zera o contador do timer
@@ -479,13 +479,13 @@ OCI1A_Interrupt:
 ; ============================================================
 ; #==== Carrega o estado dos leds ====#
 charge_leds:
-	; Configurando Z com o endereço do mapeamento dos leds
+	; Configurando Z com o endereï¿½o do mapeamento dos leds
 	ldi ZH, high(mapeamento << 1)
 	ldi ZL, low(mapeamento << 1)
 
-	; Multiplica o state_count por 2 para podermos fazer um incrementador dinâmico
-	; Desta forma vai funcionar como um vetor em que cada estado é um índice e tem sua configuração específica
-	; Isso é necessário pois no mapeamento armazenamos 2 bytes(1 palavra)
+	; Multiplica o state_count por 2 para podermos fazer um incrementador dinï¿½mico
+	; Desta forma vai funcionar como um vetor em que cada estado ï¿½ um ï¿½ndice e tem sua configuraï¿½ï¿½o especï¿½fica
+	; Isso ï¿½ necessï¿½rio pois no mapeamento armazenamos 2 bytes(1 palavra)
 	mov temp, state_count
 	lsl temp
 
@@ -495,24 +495,24 @@ charge_leds:
 	adc ZH, temp
 
 	; Carrega os leds do estado
-	lpm temp, Z+ ; Lê o menos significativo
-	lpm temp2, Z ; Lê o mais significativo
+	lpm temp, Z+ ; Lï¿½ o menos significativo
+	lpm temp2, Z ; Lï¿½ o mais significativo
 
 	; Carrega 6 leds na porta B (De 0 - 5)
-	; Armazena o temp para não perdermos com a próxima operação
+	; Armazena o temp para nï¿½o perdermos com a prï¿½xima operaï¿½ï¿½o
 	push temp
 
 	; Mascara pra pegar os 6 bits
 	; 3F = 00111111
-	; O andi vai zerar apenas os dois últimos bits
+	; O andi vai zerar apenas os dois ï¿½ltimos bits
 	andi temp, $3F
 	; Joga os 6 bits na porta B
 	out PORTB, temp
 	; Restaura temp para pegarmos os 2 bits que faltaram
 	pop temp
 
-	; Pega os dois últimos bits que não foram para PORTB
-	; A ideia é fazer algo como:
+	; Pega os dois ï¿½ltimos bits que nï¿½o foram para PORTB
+	; A ideia ï¿½ fazer algo como:
 	; temp = 11000000 << 1 = 10000000 e C = 1
 	; temp2 = 00000000 << 1 = 00000001 e C = 0
 	; temp = 10000000 << 1 = 00000000 e C = 1
@@ -523,7 +523,7 @@ charge_leds:
 	rol temp2 ; Desloca todos os bits para << e pega o bit do carry e joga no menos significativo
 
 	; Carrega mais 6 leds na porta C (De 0 - 5)
-	; Copia o que está no temp2 para o temp. Isso ajuda pois depois precisaremos pegar os 2 últimos bits de temp2
+	; Copia o que estï¿½ no temp2 para o temp. Isso ajuda pois depois precisaremos pegar os 2 ï¿½ltimos bits de temp2
 	mov temp, temp2
 	; Mascara pra pegar os 6 bits
 	; 3F = 00111111
@@ -537,15 +537,15 @@ charge_leds:
 	; O andi vai prezervar apenas os dois primeiros bits
 	andi temp2, $C0
 
-	; Pega o que tá na porta D
-	; Como a porta D também vai estar com o serial, displays e controle deles precisamos evitar sobreescrever
+	; Pega o que tï¿½ na porta D
+	; Como a porta D tambï¿½m vai estar com o serial, displays e controle deles precisamos evitar sobreescrever
 	in temp, PORTD
 
-	; Zera só o que tiver nos bits que queremos
+	; Zera sï¿½ o que tiver nos bits que queremos
 	; 3F = 00111111
 	andi temp, $3F
 
-	; Junta o que tem na porta D com o estado atual dos 2 últimos leds
+	; Junta o que tem na porta D com o estado atual dos 2 ï¿½ltimos leds
 	or temp, temp2
 	; Joga tudo na porta D
 	out PORTD, temp
@@ -554,14 +554,14 @@ charge_leds:
 ; #=====================================#
 
 
-; #==== Carrega a quantidade de vezes que cada interrupção vai rodar ====#
+; #==== Carrega a quantidade de vezes que cada interrupï¿½ï¿½o vai rodar ====#
 charge_runtimes:
-	; Configurando Z com o endereço do mapeamento da quantidade de vezes que vai rodar em cada estado 
+	; Configurando Z com o endereï¿½o do mapeamento da quantidade de vezes que vai rodar em cada estado 
 	ldi ZH, high(qtd_runs << 1)
 	ldi ZL, low(qtd_runs << 1)
 
-	; Soma o state_count ao endereço de Z para jogar na posição certa
-	; Aqui não multiplicamos por 2 pois qtd_runs armazena de byte em byte, logo, cada indice do array tem 1 byte
+	; Soma o state_count ao endereï¿½o de Z para jogar na posiï¿½ï¿½o certa
+	; Aqui nï¿½o multiplicamos por 2 pois qtd_runs armazena de byte em byte, logo, cada indice do array tem 1 byte
 	add ZL, state_count
 	clr temp
 	adc ZH, temp
@@ -575,13 +575,13 @@ charge_runtimes:
 
 ; #==== Prepara para mandar a mensagem ====#
 charge_serial:
-	; Configurando Z com o endereço das mensagens do serial
+	; Configurando Z com o endereï¿½o das mensagens do serial
 	ldi ZH, high(serial_mensage << 1)
 	ldi ZL, low(serial_mensage << 1)
 	
-	; Multiplica o state_count por 2 para podermos fazer um incrementador dinâmico
-	; Desta forma vai funcionar como um vetor em que cada estado é um índice e tem sua configuração específica
-	; Isso é necessário pois no mapeamento armazenamos 2 bytes(1 palavra)
+	; Multiplica o state_count por 2 para podermos fazer um incrementador dinï¿½mico
+	; Desta forma vai funcionar como um vetor em que cada estado ï¿½ um ï¿½ndice e tem sua configuraï¿½ï¿½o especï¿½fica
+	; Isso ï¿½ necessï¿½rio pois no mapeamento armazenamos 2 bytes(1 palavra)
 	mov temp, state_count
 	lsl temp
 
@@ -595,15 +595,15 @@ charge_serial:
 	lpm serial_low, Z+ ; Pega o byte menos significativo
 	lpm serial_high, Z ; Pega o byte mais significativo
 
-	; Para transformar a mensagem em um endereço e carregar no registrador Z depois precisamos multiplicar por 2
-	; É igual a essa lógica, em que i representa o estado:
+	; Para transformar a mensagem em um endereï¿½o e carregar no registrador Z depois precisamos multiplicar por 2
+	; ï¿½ igual a essa lï¿½gica, em que i representa o estado:
 	; ldi ZH, high(msgi << 1)
 	; ldi ZL, low(msgi << 1)
-	; após isso teremos o msg1 como um endereço pronto pra ser usado
+	; apï¿½s isso teremos o msg1 como um endereï¿½o pronto pra ser usado
 	lsl serial_low
 	rol serial_high
 
-	; Liga a interrupção de UDR0
+	; Liga a interrupï¿½ï¿½o de UDR0
 	; Desta forma se UDR0 estiver vazio ele vai interromper pra enviar a mensagem -_-'
 	lds temp, UCSR0B
 	ori temp, (1 << UDRIE0)
@@ -695,11 +695,11 @@ mapeamento:
 ; #=====================================#
 
 
-; #==== Mapeamento da quantidade de vezes que vai acontecer as interrupções ====#
+; #==== Mapeamento da quantidade de vezes que vai acontecer as interrupï¿½ï¿½es ====#
 qtd_runs:
-; Definindo os limites de execuções, algumas interrupções terão que rodar mais vezes
-; É o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer só sabe contar até 4.2
-; Tive que botar pra repetir no 3 só pra ele ficar piscando D:
+; Definindo os limites de execuï¿½ï¿½es, algumas interrupï¿½ï¿½es terï¿½o que rodar mais vezes
+; ï¿½ o caso do estado 2 em que o timer precisa bater 12s mas o maldito timer sï¿½ sabe contar atï¿½ 4.2
+; Tive que botar pra repetir no 3 sï¿½ pra ele ficar piscando D:
 ; 1s -> vai rodar 2 vezes de 0.5s
 ; 12s -> vai rodar 24 vezes de 0.5s
 ; 4s -> vai rodar 8 vezes de 0.5s
