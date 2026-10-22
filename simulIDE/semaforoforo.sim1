@@ -352,8 +352,6 @@
 
 <item itemtype="Connector" uid="Connector-566" startpinid="Led-49-rPin" endpinid="ResistorDip-51-resistor0-ePin0" pointList="-1300,-980,-1292,-980,-1292,-964" />
 
-<item itemtype="Connector" uid="Connector-600" startpinid="Bus-193-busPinI" endpinid="Tunnel-192-pin" pointList="-1348,-956,-1356,-956,-1356,-976" />
-
 <item itemtype="Connector" uid="Connector-616" startpinid="Tunnel-198-pin" endpinid="Bus-194-busPinI" pointList="-1092,-892,-1092,-868" />
 
 <item itemtype="Connector" uid="Connector-617" startpinid="Bus-138-ePin0" endpinid="Bus-138-ePin0" pointList="-1476,-948,-1476,-948" />
@@ -503,5 +501,7 @@
 <item itemtype="Connector" uid="Connector-869" startpinid="Led-49-lPin" endpinid="Bus-193-ePin2" pointList="-1332,-980,-1340,-980,-1340,-964" />
 
 <item itemtype="Connector" uid="Connector-870" startpinid="Bus-193-ePin1" endpinid="Led-50-lPin" pointList="-1340,-956,-1332,-956" />
+
+<item itemtype="Connector" uid="Connector-600" startpinid="Bus-193-busPinI" endpinid="Tunnel-192-pin" pointList="-1348,-956,-1356,-956,-1356,-976" />
 
 </circuit>
