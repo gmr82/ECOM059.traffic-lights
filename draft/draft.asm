@@ -354,7 +354,7 @@ TIMER1_COMPA_ISR:
     push XL
     push XH
     
-    cpi ticks_left, 0
+    cpi ticks_left, 1
     breq TIME_IS_UP
 
     dec ticks_left
