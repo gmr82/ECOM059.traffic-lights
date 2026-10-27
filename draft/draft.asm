@@ -26,14 +26,12 @@
 .def current_state  = R18   ; guarda o indice do estado atual (0, 1, 2...)
 .def next_state     = R19   ; guarda qual será o proximo estado
 .def ticks_left     = R20   ; contador de tempo decremental do estado
-.def bcd_cmd        = R21   ; comando atual do BCD
+.def control_flags  = R21   ; [pisca P, pisca V, reinicia BCD, modo BCD(2), livre(2), mux]
 
-; multiplexing registers
-.def mux_flag       = R22   ; controla de quem e a vez (0=tens, 1=units)
-.def bcd_data       = R23   ; guarda dígitos: [dddd,uuuu]
+.def bcd_data       = R22   ; guarda dígitos: [dddd,uuuu]
+.def display_count  = R23   ; contador independente do display (0~99)
 
-; .def blink_divider  = R24   ; conta até 144 para dar os 500ms (288Hz)
-; .def blink_flags    = R28   ; registador unificado p/ flags de pisca
+.def blink_divider  = R24   ; interrupções restantes até alternar (~500 ms)
 
 ; mux pin definitions
 .equ MUX_PORT       = PORTD
@@ -44,14 +42,28 @@
 .equ PRESCALER      = 0b101                         ; cs12 e cs10 (Timer1)
 .equ TOP_144HZ      = (CPU_F / (256 * 288)) - 1     ; (Timer0)
 .equ TOP_1S         = (CPU_F / 1024) - 1            ; (Timer1)
+.equ BLINK_HALF_PERIOD = 144                       ; ~500 ms a ~288 Hz
 
 .equ BAUD       = 9600
 .equ UBRR_VALUE = (CPU_F / (16 * BAUD)) - 1 ; 16.000.000 / (16 * 9600) - 1
 
-; comandos do display BCD
-.equ BCD_CMD_ZERO      = 0
+; byte 6 da tabela: [reinicia (bit 2), modo (bits 1~0)]
+.equ BCD_CMD_OFF       = 0     ; apaga e pausa
 .equ BCD_CMD_COUNTDOWN = 1
-.equ BCD_CMD_OFF       = 2
+.equ BCD_CMD_COUNTUP   = 2
+.equ BCD_CMD_RESERVED  = 3     ; mesmo comportamento de OFF
+.equ BCD_CMD_RESTART   = 4     ; combina com o modo usando OR
+
+; campos de control_flags (R21); bits 1 e 2 reservados
+.equ BCD_CMD_SHIFT       = 3
+.equ BCD_CMD_MASK        = 0b00111000
+.equ BCD_CMD_CLEAR_MASK  = 0b11000111
+.equ BCD_MODE_MASK       = 0b00011000
+.equ BCD_RESTART_BIT     = 5
+.equ BLINK_VEHICLES_BIT  = 6
+.equ BLINK_PEDESTRES_BIT = 7
+.equ BLINK_CLEAR_MASK    = 0b00111111
+.equ MUX_FLAG_BIT        = 0     ; próximo dígito: 0=dezenas, 1=unidades
 
 ; máscara para desligar somente a interrupção UDR vazio
 .equ UDRIE0_CLEAR_MASK = 0xDF
@@ -159,7 +171,7 @@ RESET:
     out TIFR1, TL
 
     ; configura o timer0 para o chaveamento dos displays (~288hz)
-    clr mux_flag            
+    clr control_flags          ; inicializa BCD, flags de pisca e seleção do mux
     
     ldi TL, (1 << WGM01)          ; modo CTC
     out TCCR0A, TL
@@ -212,6 +224,7 @@ RESET:
     ;   ~
 
     ; inicia o motor de estados
+    clr display_count
     clr current_state       
     rcall LOAD_STATE
 
@@ -272,6 +285,8 @@ FAILSAFE_LOOP:
 ; SUBROUTINE: LOAD STATE
 ;=============================================================================
 LOAD_STATE:
+    ; cada novo estado começa aceso, com um novo intervalo de pisca
+    ldi blink_divider, BLINK_HALF_PERIOD
     ldi ZH, high(STATE_TABLE << 1)
     ldi ZL, low(STATE_TABLE << 1)
 
@@ -285,18 +300,17 @@ LOAD_STATE:
     clr TL
     adc ZH, TL
 
-    ; lê e aplica PORTB sem tocar PB6/PB7
+    ; captura bits 6/7 da tabela antes de mascarar as saídas
     lpm TL, Z+
+    andi control_flags, BLINK_CLEAR_MASK
+    sbrc TL, 6
+    ori control_flags, (1 << BLINK_VEHICLES_BIT)
+    sbrc TL, 7
+    ori control_flags, (1 << BLINK_PEDESTRES_BIT)
+
+    ; aplica apenas bits 0~5 em PORTB
     andi TL, 0b00111111
     out PORTB, TL
-    
-    ; andi blink_flags, 0b00000000
-
-    ; sbrc TL, 6            ; bit 6 do byte baixo = Pisca Veículos (V)
-    ; sbr blink_flags, 0b00000001
-    
-    ; sbrc TL, 7            ; bit 7 do byte baixo = Pisca Pedestres (P)
-    ; sbr blink_flags, 0b00000010
 
     ; byte contendo PORTC nos bits 0~5 e PORTD nos bits 6~7
     lpm TL, Z+
@@ -323,7 +337,25 @@ LOAD_STATE:
     ; lê as variáveis de controle
     lpm next_state, Z+
     lpm ticks_left, Z+
-    lpm bcd_cmd, Z+         ; '+' p/ avançar para o ponteiro
+    lpm TL, Z+
+    ; comando da tabela (bits 0~2) para o campo BCD de R21 (bits 3~5)
+    lsl TL
+    lsl TL
+    lsl TL
+    andi TL, BCD_CMD_MASK
+    andi control_flags, BCD_CMD_CLEAR_MASK
+    or control_flags, TL   ; atualiza BCD preservando pisca, mux e bits reservados
+
+    ; byte 7: valor inicial, aplicado somente ao entrar com RESTART
+    lpm TL, Z+
+    sbrs control_flags, BCD_RESTART_BIT
+    rjmp BCD_LOAD_DONE
+    cpi TL, 100
+    brlo BCD_LOAD_VALUE
+    ldi TL, 99            ; limita valores iniciais ao display de dois dígitos
+BCD_LOAD_VALUE:
+    mov display_count, TL
+BCD_LOAD_DONE:
     
     rcall UPDATE_BCD
     ret
@@ -333,8 +365,8 @@ LOAD_STATE:
 ; SUBROUTINE: EXTRACT DIGITS (DECIMAL TO BCD)
 ;=============================================================================
 EXTRACT_DIGITS:
-    ; calcula a dezena: (ticks_left * 205) / 2048
-    mov TL, ticks_left
+    ; calcula a dezena: (display_count * 205) / 2048
+    mov TL, display_count
     ldi TH, 205
     mul TL, TH          ; R0:R1 = ticks_left * 205
 
@@ -346,11 +378,11 @@ EXTRACT_DIGITS:
     lsr bcd_data        ; divide por 4
     lsr bcd_data        ; divide por 8 (dezena final pronta)
 
-    ; calcula a unidade: ticks_left - (dezena * 10)
+    ; calcula a unidade: display_count - (dezena * 10)
     ldi TH, 10
     mul bcd_data, TH    ; R0:R1 = dezena * 10 (cabe em R0, pois max é 9*10=90)
     
-    sub TL, R0          ; TL = ticks_left original - (dezena * 10)
+    sub TL, R0          ; TL = display_count original - (dezena * 10)
     
     swap bcd_data       ; passa a dezena pros 4 bits alto (0x43 -> 0x34)
     or bcd_data, TL     ; joga a unidade nos 4 bits baixos
@@ -363,17 +395,16 @@ EXTRACT_DIGITS:
 ; SUB-ROTINA: UPDATE BCD
 ;=============================================================================
 UPDATE_BCD:
-    cpi bcd_cmd, BCD_CMD_ZERO
-    breq BCD_ZERO
-
-    cpi bcd_cmd, BCD_CMD_OFF
+    mov TL, control_flags
+    andi TL, BCD_MODE_MASK
+    cpi TL, (BCD_CMD_OFF << BCD_CMD_SHIFT)
+    breq BCD_OFF
+    cpi TL, (BCD_CMD_RESERVED << BCD_CMD_SHIFT)
     breq BCD_OFF
 
-    ; se não for para desligar, faz a matemática normal do tempo
+    ; crescente/decrescente: converte o valor atual, sem alterar o contador
     rcall EXTRACT_DIGITS    
 
-    ;cpi bcd_cmd, 1          
-    ;breq BCD_COUNTDOWN
     ret                     
 ;   ~
 BCD_OFF:
@@ -381,10 +412,6 @@ BCD_OFF:
     mov bcd_data, TL
     ldi TL, 0x0F
     rjmp BCD_APPLY          ; aplica imediatamente
-;   ~
-BCD_ZERO:
-    clr bcd_data               
-    clr TL
 ;   ~
 BCD_APPLY:
     ; move o valor numerico para os bits 2~5
@@ -406,6 +433,53 @@ BCD_APPLY:
 TIMER0_COMPA_ISR:
     PUSH_CONTEXT
 
+    dec blink_divider
+    brne BLINK_DONE
+    ldi blink_divider, BLINK_HALF_PERIOD
+
+    ; relê as máscaras na Flash apenas a cada meio período do pisca
+    push ZL
+    push ZH
+    ldi ZL, low(STATE_TABLE << 1)
+    ldi ZH, high(STATE_TABLE << 1)
+    mov TL, current_state
+    lsl TL
+    lsl TL
+    lsl TL
+    add ZL, TL
+    clr TH
+    adc ZH, TH
+
+    ; primeiro byte: PB0~PB5; Z avança para o byte de PORTC/PORTD
+    lpm TL, Z+
+    ; XOR apenas com os LEDs originalmente ativos: estado <-> apagado.
+    ; As outras cores permanecem apagadas; não se inverte a porta inteira.
+    sbrs control_flags, BLINK_VEHICLES_BIT
+    rjmp BLINK_PEDESTRES
+    andi TL, 0b00111111
+    in TH, PORTB
+    eor TL, TH
+    out PORTB, TL
+    lpm TL, Z
+    andi TL, 0b00111111
+    in TH, PORTC
+    eor TL, TH
+    out PORTC, TL
+
+BLINK_PEDESTRES:
+    sbrs control_flags, BLINK_PEDESTRES_BIT
+    rjmp BLINK_RESTORE_Z
+    lpm TL, Z
+    andi TL, 0b11000000
+    in TH, PORTD
+    eor TL, TH             ; máscara só em PD6~PD7: preserva mux, BCD e TX
+    out PORTD, TL
+
+BLINK_RESTORE_Z:
+    pop ZH
+    pop ZL
+BLINK_DONE:
+
     ; --- ANTI-GHOSTING (BLANKING) ---
     ; Força '1111' nos bits 2 a 5 do PORTD para apagar o decodificador BCD
     in TH, PORTD
@@ -413,7 +487,7 @@ TIMER0_COMPA_ISR:
     out PORTD, TH
     ; --------------------------------
 
-    sbrc mux_flag, 0        
+    sbrc control_flags, MUX_FLAG_BIT
     rjmp MUX_UNITS
 ;   ~
 MUX_TENS:
@@ -437,15 +511,39 @@ MUX_UNITS:
     rcall BCD_APPLY
 ;   ~
 TIMER0_TOGGLE:
-    ; alterna o estado da flag (0 para 1, 1 para 0) de forma nativa com XOR
-    ldi TL, 1
-    eor mux_flag, TL
+    ; alterna somente o mux, preservando BCD e flags de pisca
+    ldi TL, (1 << MUX_FLAG_BIT)
+    eor control_flags, TL
 ;   ~
 TIMER0_EXIT:
     POP_CONTEXT
     
     reti
 ;   ~
+
+;=============================================================================
+; SUBROTINA: avança o display uma vez por segundo, conforme o modo vigente
+; Não reaplica RESTART: essa ação pertence somente a LOAD_STATE.
+;=============================================================================
+TICK_DISPLAY:
+    mov TL, control_flags
+    andi TL, BCD_MODE_MASK
+    cpi TL, (BCD_CMD_COUNTDOWN << BCD_CMD_SHIFT)
+    breq DISPLAY_DOWN
+    cpi TL, (BCD_CMD_COUNTUP << BCD_CMD_SHIFT)
+    breq DISPLAY_UP
+    ret                       ; OFF/reservado: pausa
+DISPLAY_DOWN:
+    tst display_count
+    breq DISPLAY_TICK_DONE
+    dec display_count
+    ret
+DISPLAY_UP:
+    cpi display_count, 99
+    brsh DISPLAY_TICK_DONE
+    inc display_count
+DISPLAY_TICK_DONE:
+    ret
 
 ;=============================================================================
 ; ISR: TIMER 1 COMPARE MATCH A (1Hz)
@@ -457,7 +555,9 @@ TIMER1_COMPA_ISR:
     push R1
     push ZL
     push ZH
-    
+
+    ; contabiliza o segundo que acabou antes de carregar um novo estado
+    rcall TICK_DISPLAY
     cpi ticks_left, 1
     breq TIME_IS_UP
 
@@ -531,88 +631,89 @@ TX_EXIT:
 ;=============================================================================
 ; STATE MACHINE DATA (.db / .dw)
 ; structure (8 bytes per state):
-; byte 0-1: [BL[V,P]; S1[G,Y,R]; S2[G,Y,R]; [S3[G,Y,R]; S4[G,Y,R]; S5[G,R]] (word)
+; byte 0: [pisca P, pisca V, S2[G,Y,R], S1[G,Y,R]]
+; byte 1: [S5[G,R], S4[G,Y,R], S3[G,Y,R]]
 ; byte 2-3: [pointer to string message] (word)
 ; byte 4: [next_state]
 ; byte 5: [time in seconds] ¿ {1bits + 7bits} -> 1b:? + 7b:seconds ?
-; byte 6: [bcd_command]
-; byte 7: [alignment padding]
+; byte 6: [reinicia (bit 2), modo BCD (bits 1~0)]
+; byte 7: [valor inicial do display (0~99), usado apenas com RESTART]
 ;=============================================================================
 STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
     ; STATE 0: manutention/reset (* = blink)
-    .dw (0b0101001011010010)
+    .dw (0b0101001011010010)    ; veículos piscam amarelo; pedestres piscam vermelho
     .dw (STR_ST_0 << 1)         ; pointer to string message
-    .db 1, 5                    ; next_state, ticks_left (s)
-    .db BCD_CMD_COUNTDOWN, 0    ; bcd_command, alignment padding
+    .db 10, 7                   ; após manutenção, inicia o vermelho completo do TL4
+    .db BCD_CMD_COUNTDOWN | BCD_CMD_RESTART, 7
 
-    ; STATE 1: initial state (ALL: R)
-    .dw (0b0100100111001001)
+    ; STATE 1: security delay before crosswalks (ALL: R)
+    .dw (0b0100100100001001)
     .dw (STR_ST_1 << 1)
     .db 2, 1
-    .db BCD_CMD_OFF, 0
+    .db BCD_CMD_COUNTDOWN, 0    ; continua vermelho TL4
 
     ; STATE 2: crosswalks (just CW: G)
-    .dw (0b1000100111001001)
+    .dw (0b1000100100001001)
     .dw (STR_ST_2 << 1)
     .db 3, 12
     .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 3: pedestrian crossing alert (CW: alert*)
-    .dw (0b0100100111001001)
+    .dw (0b0100100110001001)    ; pedestres piscam vermelho; veículos vermelhos fixos
     .dw (STR_ST_3 << 1)
     .db 4, 4
     .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 4: security delay 1 (?)
-    .dw (0b0100100111001001)
+    .dw (0b0100100100001001)
     .dw (STR_ST_4 << 1)
     .db 5, 2
-    .db BCD_CMD_OFF, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 5: southbound lanes reopened (TL1, TL2: G)
-    .dw (0b0100100111100100)
+    .dw (0b0100100100100100)
     .dw (STR_ST_5 << 1)
     .db 6, 22
     .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 6: alert for the westbound (TL2: Y)
-    .dw (0b0100100111010100)
+    .dw (0b0100100100010100)
     .dw (STR_ST_6 << 1)
     .db 7, 4
     .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 7: security transition 2 (TL1: G; demais: R)
-    .dw (0b0100100111001100)
+    .dw (0b0100100100001100)
     .dw (STR_ST_7 << 1)
     .db 8, 1
-    .db BCD_CMD_OFF, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 8: StoN ^ NtoWaS (TL1 e TL4: G)
-    .dw (0b0110000111001100)
+    .dw (0b0110000100001100)
     .dw (STR_ST_8 << 1)
     .db 9, 60
-    .db BCD_CMD_COUNTDOWN, 0
+    .db BCD_CMD_COUNTDOWN | BCD_CMD_RESTART, 64 ; TL4: 60 s verde + 4 s amarelo
 
     ; STATE 9: main alert (TL1 e TL4: Y)
-    .db 0b11001010, 0b01010001  ; .dw (0b0101000111001010)
+    .db 0b00001010, 0b01010001  ; .dw (0b0101000100001010)
     .dw (STR_ST_9 << 1)
     .db 10, 4
-    .db BCD_CMD_COUNTDOWN, 0
+    .db BCD_CMD_COUNTDOWN, 0    ; TL4 amarelo: continua em 04, 03, 02, 01
 
     ; STATE 10: security delay 3 (ALL: R)
-    .dw (0b0100100111001001)
+    .dw (0b0100100100001001)
     .dw (STR_ST_10 << 1)
     .db 11, 1
-    .db BCD_CMD_OFF, 0
+    .db BCD_CMD_COUNTDOWN | BCD_CMD_RESTART, 76 ; vermelho TL4: estados 10~12 e 1~7
 
     ; STATE 11: WtoSaN (TL3: G)
-    .dw (0b0100110011001001)
+    .dw (0b0100110000001001)
     .dw (STR_ST_11 << 1)
     .db 12, 25
     .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 12: west to all alert (TL3: Y)
-    .dw (0b0100101011001001)
+    .dw (0b0100101000001001)
     .dw (STR_ST_12 << 1)
     .db 1, 4
     .db BCD_CMD_COUNTDOWN, 0
