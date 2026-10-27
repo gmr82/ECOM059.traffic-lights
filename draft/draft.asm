@@ -721,10 +721,10 @@ STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
 ;=============================================================================
 ; STRINGS DE ESTADO (Terminadas em NULL com quebra de linha CR+LF)
 ;=============================================================================
-STR_ST_0:  .db "S00: _MGMT", 13, 10, "CW: R | TL4: Y | TL3: Y | TL2: Y | TL1: Y", 13, 10, 0x00
+STR_ST_0:  .db "S00: _MGMT", 13, 10, "CW: R* | TL4: Y* | TL3: Y* | TL2: Y* | TL1: Y*", 13, 10, 0x00
 STR_ST_1:  .db "S01: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
-STR_ST_2:  .db "S02: CW///", 13, 10, "CW: G | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
-STR_ST_3:  .db "S03: CW***", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_2:  .db "S02: CW/>/", 13, 10, "CW: G | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
+STR_ST_3:  .db "S03: CW***", 13, 10, "CW: R* | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
 STR_ST_4:  .db "S04: DELAY", 13, 10, "CW: R | TL4: R | TL3: R | TL2: R | TL1: R", 13, 10, 0x00
 STR_ST_5:  .db "S05: ?????", 13, 10, "CW: R | TL4: R | TL3: R | TL2: G | TL1: G", 13, 10, 0x00
 STR_ST_6:  .db "S06: ?????", 13, 10, "CW: R | TL4: R | TL3: R | TL2: Y | TL1: G", 13, 10, 0x00
