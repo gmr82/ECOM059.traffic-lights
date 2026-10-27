@@ -67,8 +67,7 @@ sudo avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 115200 -U flash:w:draft.hex
 Para compilar e gravar somente se a compilação terminar com sucesso:
 
 ```bash
-avra -o draft.hex draft.asm &&
-sudo avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 115200 -U flash:w:draft.hex
+avra -o draft.hex draft.asm && sudo avrdude -c arduino -p m328p -P /dev/ttyUSB0 -b 115200 -U flash:w:draft.hex
 ```
 
 ### Monitorar a saída serial
