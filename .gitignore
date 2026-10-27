@@ -9,4 +9,4 @@
 
 # others
 *.pdf
-*.hex
+#*.hex
