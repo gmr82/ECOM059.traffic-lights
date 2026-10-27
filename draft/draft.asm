@@ -26,10 +26,10 @@
 .def current_state  = R18   ; guarda o indice do estado atual (0, 1, 2...)
 .def next_state     = R19   ; guarda qual será o proximo estado
 .def ticks_left     = R20   ; contador de tempo decremental do estado
-.def bcd_cmd        = R21   ; comando atual do bcd {otimizar}
+.def bcd_cmd        = R21   ; comando atual do BCD
 
 ; multiplexing registers
-.def mux_flag       = R22   ; controla de quem e a vez (0=tens, 1=units) {otimizar}
+.def mux_flag       = R22   ; controla de quem e a vez (0=tens, 1=units)
 .def bcd_data       = R23   ; guarda dígitos: [dddd,uuuu]
 
 ; .def blink_divider  = R24   ; conta até 144 para dar os 500ms (288Hz)
@@ -40,45 +40,97 @@
 .equ MUX_PIN        = 0     ; pino PD0
 
 ; timer constants
-.equ CPU_F          = 16000000                      ; 16 MHz
+.equ CPU_F          = 16000000                      ; 16 MHz (16.0e6)
 .equ PRESCALER      = 0b101                         ; cs12 e cs10 (Timer1)
 .equ TOP_144HZ      = (CPU_F / (256 * 288)) - 1     ; (Timer0)
 .equ TOP_1S         = (CPU_F / 1024) - 1            ; (Timer1)
+
+.equ BAUD       = 9600
+.equ UBRR_VALUE = (CPU_F / (16 * BAUD)) - 1 ; 16.000.000 / (16 * 9600) - 1
+
+; comandos do display BCD
+.equ BCD_CMD_ZERO      = 0
+.equ BCD_CMD_COUNTDOWN = 1
+.equ BCD_CMD_OFF       = 2
+
+; máscara para desligar somente a interrupção UDR vazio
+.equ UDRIE0_CLEAR_MASK = 0xDF
+
+; saídas do estado seguro: todos vermelhos e display apagado
+.equ FAILSAFE_PORTB = 0x09
+.equ FAILSAFE_PORTC = 0x09
+.equ FAILSAFE_PORTD = 0x7C
 
 ;=============================================================================
 ; DATA SEGMENT (SRAM)
 ;=============================================================================
 .dseg
-.org SRAM_START
-    tx_ptr: .byte 2     ; Reserva 2 bytes na SRAM para o ponteiro de envio da UART
+.org SRAM_START     ; endereço absoluto da SRAM do ATmega328P
+tx_ptr: .byte 2     ; Reserva 2 bytes
 ;   ~
 .cseg
 ;=============================================================================
 ; VECTOR TABLE
 ;=============================================================================
 .org 0x0000
-    rjmp RESET
-;   ~
-.org OC1Aaddr                   ; interrupcao do timer1 (states) [0x0016]
-    rjmp TIMER1_COMPA_ISR
-;   ~
-.org OC0Aaddr                   ; interrupcao do timer0 (mux) [0x001C]
-    rjmp TIMER0_COMPA_ISR
-;   ~
-.org UDREaddr                   ; interrupção de buffer UART vazio [0x0026]
-    rjmp UART_UDRE_ISR
-;   ~
+    jmp RESET                  ; 0x0000 RESET
+    jmp UNHANDLED_ISR          ; 0x0002 INT0
+    jmp UNHANDLED_ISR          ; 0x0004 INT1
+    jmp UNHANDLED_ISR          ; 0x0006 PCINT0
+    jmp UNHANDLED_ISR          ; 0x0008 PCINT1
+    jmp UNHANDLED_ISR          ; 0x000A PCINT2
+    jmp UNHANDLED_ISR          ; 0x000C WDT
+    jmp UNHANDLED_ISR          ; 0x000E TIMER2 COMPA
+    jmp UNHANDLED_ISR          ; 0x0010 TIMER2 COMPB
+    jmp UNHANDLED_ISR          ; 0x0012 TIMER2 OVF
+    jmp UNHANDLED_ISR          ; 0x0014 TIMER1 CAPT
+    jmp TIMER1_COMPA_ISR       ; 0x0016 TIMER1 COMPA
+    jmp UNHANDLED_ISR          ; 0x0018 TIMER1 COMPB
+    jmp UNHANDLED_ISR          ; 0x001A TIMER1 OVF
+    jmp TIMER0_COMPA_ISR       ; 0x001C TIMER0 COMPA
+    jmp UNHANDLED_ISR          ; 0x001E TIMER0 COMPB
+    jmp UNHANDLED_ISR          ; 0x0020 TIMER0 OVF
+    jmp UNHANDLED_ISR          ; 0x0022 SPI STC
+    jmp UNHANDLED_ISR          ; 0x0024 USART RX
+    jmp UART_UDRE_ISR          ; 0x0026 USART UDR EMPTY
+    jmp UNHANDLED_ISR          ; 0x0028 USART TX
+    jmp UNHANDLED_ISR          ; 0x002A ADC
+    jmp UNHANDLED_ISR          ; 0x002C EEPROM READY
+    jmp UNHANDLED_ISR          ; 0x002E ANALOG COMP
+    jmp UNHANDLED_ISR          ; 0x0030 TWI
+    jmp UNHANDLED_ISR          ; 0x0032 SPM READY
 
 ;=============================================================================
 ; SYSTEM INITIALIZATION/RESET
 ;=============================================================================
+.org 0x0034
 RESET:
+    cli
+
     ; stack pointer
     ldi TL, high(RAMEND)
     out SPH, TL
     ldi TL, low(RAMEND)
     out SPL, TL
+
+    ; higienização do bootloader (P/ ARDUINO) --------------------------------------------
     
+    ; neutraliza o Watchdog Timer (que o Optiboot deixou armado em 15ms)
+    wdr                             ; reseta o contador do Watchdog
+    in TL, MCUSR
+    andi TL, 0xF7                   ; limpa a flag de reset do WDT
+    out MCUSR, TL
+    
+    clr TH                          ; prepara um registrador com valor puro 0x00
+    ldi TL, (1<<WDCE) | (1<<WDE)    ; uso direto absoluto (sem ler o estado anterior)
+    sts WDTCSR, TL                  ; abre os cadeados de segurança do WDT…
+    sts WDTCSR, TH                  ; …e o desliga na mesma fração de clock!
+
+    ; limpa os rastros nos periféricos que causam comportamentos fantasmas
+    sts UCSR0A, TH                  ; desliga a velocidade dupla serial (U2X0) do Optiboot
+    sts TCCR1A, TH                  ; garante que o Timer 1 nasça zerado e não em modo PWM
+    ; ------------------------------------------------------------------------------------
+   
     ; configura as portas
     ldi TL, 0b00111111    ; bits 0~5 como saida
     out DDRB, TL          ; portb (semaforos 1 e 2)
@@ -90,6 +142,22 @@ RESET:
     ; ; liga o pull-up interno no pino PD1 (TX) para evitar lixo serial ao ligar/resetar
     ; sbi PORTD, 1
 
+    clr TL
+    out TCCR0B, TL
+    sts TCCR1B, TL
+    
+    out TCNT0, TL
+    ; zera o contador do Timer 1 para evitar atraso fantasma do bootloader
+    sts TCNT1H, TL
+    sts TCNT1L, TL
+
+    ; limpa flags pendentes de Compare Match A (escrevendo 1 para limpar)
+    ldi TL, (1 << OCF0A)
+    out TIFR0, TL
+
+    ldi TL, (1 << OCF1A)
+    out TIFR1, TL
+
     ; configura o timer0 para o chaveamento dos displays (~288hz)
     clr mux_flag            
     
@@ -99,8 +167,7 @@ RESET:
     ldi TL, TOP_144HZ
     out OCR0A, TL                 ; carrega o limite da contagem (216)
     
-    lds TL, TIMSK0
-    sbr TL, (1 << OCIE0A)         ; habilita a interrupcao Compare Match A
+    ldi TL, (1 << OCIE0A)          ;força apenas o Compare Match A, zerando o resto
     sts TIMSK0, TL
 
     ; configura o timer1 para a maquina de estados (1s)
@@ -108,15 +175,14 @@ RESET:
     sts OCR1AH, TL
     ldi TL, low(TOP_1S)
     sts OCR1AL, TL
-    
-    lds TL, TIMSK1
-    sbr TL, (1 << OCIE1A) 
+
+    ldi TL, (1 << OCIE1A)         ; força apenas o Compare Match A, zerando o resto
     sts TIMSK1, TL
 
     ; configura UART (9600 bps @ 16 MHz)
     clr TL
     sts UBRR0H, TL
-    ldi TL, 103                   ; 16.000.000 / (16 * 9600) - 1
+    ldi TL, UBRR_VALUE              ; 16.000.000 / (16 * 9600) - 1
     sts UBRR0L, TL
 
     ldi TL, (1 << TXEN0)          ; habilita apenas TX (interrupção desligada)
@@ -126,23 +192,24 @@ RESET:
     sts UCSR0C, TL
 
     ; banner com mensagem de reset
-    ; ldi ZH, high(STR_BOOT << 1)
-    ; ldi ZL, low(STR_BOOT << 1)
+    ldi ZH, high(STR_BOOT << 1)
+    ldi ZL, low(STR_BOOT << 1)
 
-    ; MSG_PRINT:
-    ;     lpm TL, Z+        ; lê o caractere da memória
-    ;     tst TL            ; verifica se é o nulo (0x00)
-    ;     breq MSG_DONE       ; se for nulo, a mensagem de reset acabou
+    MSG_PRINT:
+        lpm TL, Z+        ; lê o caractere da memória
+        tst TL            ; verifica se é o nulo (0x00)
+        breq MSG_DONE       ; se for nulo, a mensagem de reset acabou
 
-    ; WAIT_BUFFER:
-    ;     lds TH, UCSR0A               
-    ;     sbrs TH, UDRE0               ; espera até o buffer da porta serial estar vazio
-    ;     rjmp WAIT_BUFFER                
+    WAIT_BUFFER:
+        lds TH, UCSR0A               
+        sbrs TH, UDRE0               ; espera até o buffer da porta serial estar vazio
+        rjmp WAIT_BUFFER                
 
-    ;     sts UDR0, TL                  ; dispara a letra para o terminal
-    ;     rjmp MSG_PRINT                  ; repete para a próxima letra
-    ; MSG_DONE:
-    ;     ; mensagem de reset enviada
+        sts UDR0, TL                  ; dispara a letra para o terminal
+        rjmp MSG_PRINT                  ; repete para a próxima letra
+    MSG_DONE:
+        ; mensagem de reset enviada
+    ;   ~
 
     ; inicia o motor de estados
     clr current_state       
@@ -160,14 +227,41 @@ RESET:
     ldi TL, (1 << WGM12) | PRESCALER  ; dispara Timer1 (CTC, prescaler 1024)
     sts TCCR1B, TL
 
+    ; modo Idle: CPU dorme, mas timers e UART continuam ativos
+    ldi TL, (1 << SE)
+    out SMCR, TL
+
     sei
 ;   ~
 ;=============================================================================
 ; ROUTINE: MAIN LOOP
 ;=============================================================================
 MAIN_LOOP:
-    ; nop
+    sleep
     rjmp MAIN_LOOP
+;   ~
+
+;=============================================================================
+; ISR: INTERRUPÇÃO INESPERADA (FAIL-SAFE)
+;=============================================================================
+UNHANDLED_ISR:
+    cli
+
+    ; interrompe a evolução da máquina de estados e a multiplexação
+    clr TL
+    out TCCR0B, TL
+    sts TCCR1B, TL
+
+    ; força todos os semáforos em vermelho e apaga o display
+    ldi TL, FAILSAFE_PORTB
+    out PORTB, TL
+    ldi TL, FAILSAFE_PORTC
+    out PORTC, TL
+    ldi TL, FAILSAFE_PORTD
+    out PORTD, TL
+
+FAILSAFE_LOOP:
+    rjmp FAILSAFE_LOOP
 ;   ~
 
 ;=============================================================================
@@ -187,8 +281,9 @@ LOAD_STATE:
     clr TL
     adc ZH, TL
 
-    ; lê e aplica PORTB
+    ; lê e aplica PORTB sem tocar PB6/PB7
     lpm TL, Z+
+    andi TL, 0b00111111
     out PORTB, TL
     
     ; andi blink_flags, 0b00000000
@@ -199,19 +294,25 @@ LOAD_STATE:
     ; sbrc TL, 7            ; bit 7 do byte baixo = Pisca Pedestres (P)
     ; sbr blink_flags, 0b00000010
 
+    ; byte contendo PORTC nos bits 0~5 e PORTD nos bits 6~7
     lpm TL, Z+
+    mov TH, TL
+
+    ; aplica bits 0~5 em PORTC
+    andi TL, 0b00111111
     out PORTC, TL
 
-    ; lê e aplica PORTD preservando BCD e TX      
-    in TH, PORTD   
-    andi TH, 0b00111111
-    andi TL, 0b11000000
-    or TH, TL
-    out PORTD, TH 
+    ; aplica bits 6~7 em PORTD, preservando PD0~PD5
+    andi TH, 0b11000000
+    in TL, PORTD
+    andi TL, 0b00111111
+    or TL, TH
+    out PORTD, TL
 
-    ; lê o endereço da string (2 bytes) diretamente para o ponteiro nativo X
+    ; lê o endereço da string da Flash e salva na SRAM
     lpm TL, Z+
     sts tx_ptr, TL
+
     lpm TL, Z+
     sts tx_ptr+1, TL
 
@@ -258,10 +359,10 @@ EXTRACT_DIGITS:
 ; SUB-ROTINA: UPDATE BCD
 ;=============================================================================
 UPDATE_BCD:
-    cpi bcd_cmd, 0
+    cpi bcd_cmd, BCD_CMD_ZERO
     breq BCD_ZERO
 
-    cpi bcd_cmd, 2          ; comando 2 = desligar (apagar) o display
+    cpi bcd_cmd, BCD_CMD_OFF
     breq BCD_OFF
 
     ; se não for para desligar, faz a matemática normal do tempo
@@ -274,7 +375,7 @@ UPDATE_BCD:
 BCD_OFF:
     ldi TL, 0xFF            ; O valor 15 (0b1111) força o BCD a desligar os LEDs
     mov bcd_data, TL
-    ldi TL, 15
+    ldi TL, 0x0F
     rjmp BCD_APPLY          ; aplica imediatamente
 ;   ~
 BCD_ZERO:
@@ -301,12 +402,12 @@ BCD_APPLY:
 TIMER0_COMPA_ISR:
     PUSH_CONTEXT
 
-    ; ; --- ANTI-GHOSTING (BLANKING) ---
-    ; ; Força '1111' nos bits 2 a 5 do PORTD para apagar o decodificador BCD
-    ; in TH, PORTD
-    ; ori TH, 0b00111100   ; O 'ori' (OR) coloca 1 nos bits do BCD sem afetar os outros
-    ; out PORTD, TH
-    ; ; --------------------------------
+    ; --- ANTI-GHOSTING (BLANKING) ---
+    ; Força '1111' nos bits 2 a 5 do PORTD para apagar o decodificador BCD
+    in TH, PORTD
+    ori TH, 0b00111100   ; O 'ori' (OR) coloca 1 nos bits do BCD sem afetar os outros
+    out PORTD, TH
+    ; --------------------------------
 
     sbrc mux_flag, 0        
     rjmp MUX_UNITS
@@ -348,11 +449,10 @@ TIMER0_EXIT:
 TIMER1_COMPA_ISR:
     PUSH_CONTEXT
 
-
+    push R0
+    push R1
     push ZL
     push ZH
-    push XL
-    push XH
     
     cpi ticks_left, 1
     breq TIME_IS_UP
@@ -364,7 +464,7 @@ TIMER1_COMPA_ISR:
 TIME_IS_UP: 
     mov current_state, next_state
     
-    rcall LOAD_STATE  ; carrega todo o contexto do novo estado (incluindo o ponteiro X da nova string)
+    rcall LOAD_STATE  ; carrega o novo estado e o ponteiro da mensagem na SRAM
 
     ; liga a interrupção UDRE0 para iniciar a cascata de envios
     lds TL, UCSR0B
@@ -372,10 +472,10 @@ TIME_IS_UP:
     sts UCSR0B, TL
 ;   ~
 TIMER1_EXIT:
-    pop XH
-    pop XL
     pop ZH
     pop ZL
+    pop R1
+    pop R0
     
     POP_CONTEXT
     reti
@@ -412,7 +512,7 @@ UART_UDRE_ISR:
 TX_FINISHED:
     ; se chegou ao fim da string, desliga a própria interrupção UDRE0
     lds TL, UCSR0B
-    andi TL, 0b11011111           ; limpa o bit 5 (UDRIE0)
+    andi TL, UDRIE0_CLEAR_MASK    ; limpa o bit UDRIE0
     sts UCSR0B, TL
 ;   ~
 TX_EXIT:
@@ -439,79 +539,79 @@ STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
     .dw (0b0101001011010010)
     .dw (STR_ST_0 << 1)         ; pointer to string message
     .db 1, 5                    ; next_state, ticks_left (s)
-    .db 1, 0                    ; bcd_command, alignment padding
+    .db BCD_CMD_COUNTDOWN, 0    ; bcd_command, alignment padding
 
     ; STATE 1: initial state (ALL: R)
     .dw (0b0100100111001001)
     .dw (STR_ST_1 << 1)
     .db 2, 1
-    .db 2, 0
+    .db BCD_CMD_OFF, 0
 
     ; STATE 2: crosswalks (just CW: G)
     .dw (0b1000100111001001)
     .dw (STR_ST_2 << 1)
     .db 3, 12
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 3: pedestrian crossing alert (CW: alert*)
     .dw (0b0100100111001001)
     .dw (STR_ST_3 << 1)
     .db 4, 4
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 4: security delay 1 (?)
     .dw (0b0100100111001001)
     .dw (STR_ST_4 << 1)
     .db 5, 2
-    .db 2, 0
+    .db BCD_CMD_OFF, 0
 
     ; STATE 5: southbound lanes reopened (TL1, TL2: G)
     .dw (0b0100100111100100)
     .dw (STR_ST_5 << 1)
     .db 6, 22
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 6: alert for the westbound (TL2: Y)
     .dw (0b0100100111010100)
     .dw (STR_ST_6 << 1)
     .db 7, 4
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
-    ; STATE 7: security delay 2 (ALL: R)
+    ; STATE 7: security transition 2 (TL1: G; demais: R)
     .dw (0b0100100111001100)
     .dw (STR_ST_7 << 1)
     .db 8, 1
-    .db 2, 0
+    .db BCD_CMD_OFF, 0
 
     ; STATE 8: StoN ^ NtoWaS (TL1 e TL4: G)
     .dw (0b0110000111001100)
     .dw (STR_ST_8 << 1)
     .db 9, 60
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 9: main alert (TL1 e TL4: Y)
     .db 0b11001010, 0b01010001  ; .dw (0b0101000111001010)
     .dw (STR_ST_9 << 1)
     .db 10, 4
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 10: security delay 3 (ALL: R)
     .dw (0b0100100111001001)
     .dw (STR_ST_10 << 1)
     .db 11, 1
-    .db 2, 0
+    .db BCD_CMD_OFF, 0
 
     ; STATE 11: WtoSaN (TL3: G)
     .dw (0b0100110011001001)
     .dw (STR_ST_11 << 1)
     .db 12, 25
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 
     ; STATE 12: west to all alert (TL3: Y)
     .dw (0b0100101011001001)
     .dw (STR_ST_12 << 1)
     .db 1, 4
-    .db 1, 0
+    .db BCD_CMD_COUNTDOWN, 0
 ;   ~
 ;=============================================================================
 ; STRINGS DE ESTADO (Terminadas em NULL com quebra de linha CR+LF)
