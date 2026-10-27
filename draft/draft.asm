@@ -237,7 +237,11 @@ RESET:
 ; ROUTINE: MAIN LOOP
 ;=============================================================================
 MAIN_LOOP:
-    sleep
+    .ifdef SIMULIDE
+        nop
+    .else
+        sleep
+    .endif
     rjmp MAIN_LOOP
 ;   ~
 
