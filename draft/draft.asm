@@ -641,7 +641,7 @@ TX_EXIT:
 ;=============================================================================
 STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
     ; STATE 0: manutention/reset (* = blink)
-    .dw (0b0101001011010010)    ; veículos piscam amarelo; pedestres piscam vermelho
+    .dw (0b0101101111011011)    ; veículos piscam amarelo; pedestres piscam vermelho
     .dw (STR_ST_0 << 1)         ; pointer to string message
     .db 10, 7                   ; após manutenção, inicia o vermelho completo do TL4
     .db BCD_CMD_COUNTDOWN | BCD_CMD_RESTART, 7
@@ -695,7 +695,7 @@ STATE_TABLE:    ; (CW TL4 TL3 BS TL2 TL1)
     .db BCD_CMD_COUNTDOWN | BCD_CMD_RESTART, 64 ; TL4: 60 s verde + 4 s amarelo
 
     ; STATE 9: main alert (TL1 e TL4: Y)
-    .db 0b00001010, 0b01010001  ; .dw (0b0101000100001010)
+    .dw (0b0101000100001010)  ; .db 0b00001010, 0b01010001
     .dw (STR_ST_9 << 1)
     .db 10, 4
     .db BCD_CMD_COUNTDOWN, 0    ; TL4 amarelo: continua em 04, 03, 02, 01

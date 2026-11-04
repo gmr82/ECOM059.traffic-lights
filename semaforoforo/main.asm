@@ -2,8 +2,9 @@
 ; semaforoforo.asm
 ;
 ; Created: 07/10/2026 11:25:39
-; Authors : nós
+; Authors : Wolfshohle
 
+.include "m328Pdef.inc"
 
 ; Determina um segmento de c�digo para a FLASH
 .cseg
@@ -37,30 +38,30 @@
 .set d75 = 7 ; Dezena do estado de fechado
 .set u75 = 5 ; Unidade do estado de fechado
 
-#define CLOCK 16.0e6 ; Define o clock como 16MHz
+#define CLOCK 16000000; 16.0e6 ; Define o clock como 16MHz
 
 ; #==== Timer 0 ====#
 ; Ser� usado para o display
 ; Este timer s� conta at� 256 (tem 1 byte s�)
 .equ delay0 = 2 ; Define um delay de 5ms
-.equ prescale0 = 0b101 ; Fixa o prescale do timer 2 em 1024
-.equ prescale_div0 = 1024 ; Valor do prescale fixado
-.equ TOP0 = int(((CLOCK * delay0)/(prescale_div0 * 1000)) - 1) ; Express�o que calcula o TOP0
+.equ prescale0 = 0b100 ; Fixa o prescale do timer 0 em 256
+.equ prescale_div0 = 256 ; Valor do prescale fixado
+.equ TOP0 = ((CLOCK / 1000) * delay0 / prescale_div0) - 1 ; Express�o que calcula o TOP0
 .equ WGM0 = 0b10 ; Para configurar o timer 0 no modo ctc
 ; #===================
 
 ; #==== Timer 1 ====#
 ; Ser� usado para interrup��o do estado
-.equ delay = 500 ; Define um delay de 500ms
-.equ prescale = 0b0100 ; Fixa o prescale do timer 1 em 256
-.equ prescale_div = 256 ; Valor do prescale fixado
-.equ TOP = int(((CLOCK * delay)/(prescale_div * 1000)) - 1) ; Express�o que calcula o TOP
+.equ delay1 = 500 ; Define um delay de 500ms
+.equ prescale1 = 0b100 ; Fixa o prescale do timer 1 em 256
+.equ prescale_div1 = 256 ; Valor do prescale fixado
+.equ TOP = ((CLOCK / 1000) * delay1 / prescale_div1) - 1 ; Expresso que calcula o TOP
 .equ WGM = 0b0100 ; Pra configurar o timer 1 no modo ctc
 ; #===================
  
  ; #==== USART ====#
 .equ baundrate = 9600 ; Define o baundrate em 9600 ideal para uma comunica��o moderada
-.equ UBRRvalue = int((CLOCK/(16 * baundrate)) - 1) ; Valor do UBRR
+.equ UBRRvalue = (CLOCK/(16 * baundrate)) - 1 ; Valor do UBRR
 ; #===================
 ; ==============================================
 
@@ -239,7 +240,7 @@ init_timer:
 	; (WGM >> 2) << WGM12 = (0b0001 << 3) = 0b0001000
 	; (PRESCALE << CS10) = 0b101 << 0 = 0b101
 	; 0b0001000 | 0b101 = 0b0001101
-	ldi temp, ((WGM>>2)<<WGM12)|(prescale << CS10)
+	ldi temp, ((WGM>>2)<<WGM12)|(prescale1 << CS10)
 	sts TCCR1B, temp
 
 	ret
@@ -398,11 +399,11 @@ OCI1A_Interrupt:
 		brne exit
 
 		; Caso esteja no estado 2 faz o led vermelho piscar
-		; Seta 1 no bit 7 do PIND
+		; Seta 1 no bit 6 do PIND
 		; A ideia � que se escrever 1 no PIND ele inverte o valor do bit
 		; Se estava 0 (LED apagado), vira 1 (LED aceso)
 		; Se estava 1 (LED aceso), vira 0 (LED apagado)
-		sbi PIND, 7
+		sbi PIND, 6
 
 		rjmp exit
 
@@ -646,24 +647,24 @@ charge_display:
 ; Semaforo 5: verde (bit 12), vermelho(bit 13)
 
 ; Semaforo 1
-.equ S1_G = (1 << 0)
+.equ S1_G = (1 << 2)
 .equ S1_Y = (1 << 1)
-.equ S1_R = (1 << 2)
+.equ S1_R = (1 << 0)
 ; Semaforo 2
-.equ S2_G = (1 << 3)
+.equ S2_G = (1 << 5)
 .equ S2_Y = (1 << 4)
-.equ S2_R = (1 << 5)
+.equ S2_R = (1 << 3)
 ; Semaforo 3
-.equ S3_G = (1 << 6)
+.equ S3_G = (1 << 8)
 .equ S3_Y = (1 << 7)
-.equ S3_R = (1 << 8)
+.equ S3_R = (1 << 6)
 ; Semaforo 4
-.equ S4_G = (1 << 9)
+.equ S4_G = (1 << 11)
 .equ S4_Y = (1 << 10)
-.equ S4_R = (1 << 11)
+.equ S4_R = (1 << 9)
 ; Semaforo 5
-.equ S5_G = (1 << 12)
-.equ S5_R = (1 << 13)
+.equ S5_G = (1 << 13)
+.equ S5_R = (1 << 12)
 
 ; Guarda o estado dos leds
 mapeamento:
@@ -718,51 +719,51 @@ qtd_runs:
 ; #==== mensagens para mandar ====#
 ; Estado 1
 msg1:
-    .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+    .db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 2
 msg2:
-    .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Verde", 13, 10, 13, 10, 0
+    .db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Verde", 13, 10, 13, 10, 0
 
 ; Estado 3
 msg3:
-    .db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho piscando", 13, 10, 13, 10, 0
+    .db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho piscando", 13, 10, 13, 10, 0
 
 ; Estado 4
 msg4:
-	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 5
 msg5:
-	.db "S1: Verde", 13, 10, "S2: Verde", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10,"S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Verde", 13, 10, "TL2: Verde", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10,"CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 6
 msg6:
-	.db "S1: Verde", 13, 10, "S2: Amarelo", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Verde", 13, 10, "TL2: Amarelo", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 7
 msg7:
-	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+	.db "TL1: Verde", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0
 
 ; Estado 8
 msg8:
-	.db "S1: Verde", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Verde", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Verde", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Verde", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 9
 msg9:
-	.db "S1: Amarelo", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Amarelo", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Amarelo", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Amarelo", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 10
 msg10:
-	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Vermelho", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0, 0
+	.db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Vermelho", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0, 0
 
 ; Estado 11
 msg11:
-	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Verde", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+	.db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Verde", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0
 
 ; Estado 12
 msg12:
-	.db "S1: Vermelho", 13, 10, "S2: Vermelho", 13, 10, "S3: Amarelo", 13, 10, "S4: Vermelho", 13, 10, "S5: Vermelho", 13, 10, 13, 10, 0
+	.db "TL1: Vermelho", 13, 10, "TL2: Vermelho", 13, 10, "TL3: Amarelo", 13, 10, "TL4: Vermelho", 13, 10, "CW: Vermelho", 13, 10, 13, 10, 0
 ; #=====================================#
 
 
